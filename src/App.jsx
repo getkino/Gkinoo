@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { parseM3U } from './utils/parseM3U';
 import PlatformSidebar from './components/PlatformSidebar';
 import ChannelGrid from './components/ChannelGrid';
-import VideoPlayer from './components/VideoPlayer';
+import ShakaPlayer from './components/ShakaPlayer';
 
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "dmax" },
@@ -58,7 +58,6 @@ function App() {
         }
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isWatching, selectedGroup]);
@@ -110,7 +109,7 @@ function App() {
         )}
 
         {isWatching && selectedChannel ? (
-          <VideoPlayer url={selectedChannel.url} fullscreen />
+          <ShakaPlayer url={selectedChannel.url} onExit={() => setIsWatching(false)} />
         ) : selectedGroup ? (
           <ChannelGrid
             channels={flatEpisodes}
