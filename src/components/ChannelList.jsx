@@ -9,7 +9,10 @@ export default function ChannelList({ onSelect }) {
   useEffect(() => {
     const urls = [
       "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u",
-      "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u"
+      "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u",
+      "https://raw.githubusercontent.com/sarapcanagii/Pitipitii/refs/heads/master/NeonSpor/NeonSpor.m3u8",
+      "https://raw.githubusercontent.com/GitLatte/patr0n/site/lists/power-sinema.m3u",
+      "https://raw.githubusercontent.com/GitLatte/patr0n/site/lists/power-yabanci-dizi.m3u"
     ];
 
     const fetchAll = async () => {

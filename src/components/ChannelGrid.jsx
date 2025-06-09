@@ -5,7 +5,7 @@ import { getPoster } from '../utils/getPoster';
 export default function ChannelGrid({ channels, onSelect, focusedIndex, imageMap, setFocusedIndex, isProgramPage }) {
   const [posters, setPosters] = useState({});
   const containerRef = useRef(null);
-  const columns = 5;
+  const columns = isProgramPage ? 5 : 4;
 
   useEffect(() => {
     if (!isProgramPage) return;
@@ -49,7 +49,7 @@ export default function ChannelGrid({ channels, onSelect, focusedIndex, imageMap
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
+          gridTemplateColumns: `repeat(${columns}, 1fr)`,
           gap: '20px',
           marginBottom: '40px'
         }}
@@ -72,12 +72,12 @@ export default function ChannelGrid({ channels, onSelect, focusedIndex, imageMap
             <img
               src={
                 isProgramPage
-                  ? posters[ch.name] || ch.logo || imageMap?.[ch.name] || '/images/default.jpg'
-                  : ch.logo || imageMap?.[ch.group] || '/images/default.jpg'
+                  ? (posters?.[ch.name] || imageMap?.[ch.name] || ch.logo || '/images/default.jpg')
+                  : (ch.logo || imageMap?.[ch.group] || '/images/default.jpg')
               }
               alt={ch.name}
               loading="lazy"
-              style={{ width: '100%', height: '300px', objectFit: 'cover' }}
+              style={{ width: '100%', height: isProgramPage ? '300px' : '180px', objectFit: 'cover' }}
             />
             <div style={{ padding: '10px', color: 'white', fontSize: '1rem' }}>
               {ch.name}

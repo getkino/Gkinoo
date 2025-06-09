@@ -3,9 +3,9 @@
 const platforms = [
   { name: "DMAX", logo: "/images/dmax.jpg" },
   { name: "TLC", logo: "/images/tlc.jpg" },
-  { name: "TRT", logo: "/images/trt.jpg" },
-  { name: "BBC", logo: "/images/bbc.jpg" },
-  { name: "EXXEN", logo: "/images/exxen.jpg" }
+  { name: "SPOR", logo: "/images/spor.jpg" },
+  { name: "POWER SİNEMA", logo: "/images/sinema.jpg" },
+  { name: "POWER DİZİ", logo: "/images/dizi.jpg" }
 ];
 
 export default function PlatformSidebar({ selected, onSelect }) {
@@ -23,7 +23,7 @@ export default function PlatformSidebar({ selected, onSelect }) {
       {platforms.map((platform, index) => (
         <div
           key={index}
-          onClick={() => onSelect(platform.name)}
+          onClick={() => onSelect(platform.platform || platform.name)}
           style={{
             display: 'flex',
             alignItems: 'center',

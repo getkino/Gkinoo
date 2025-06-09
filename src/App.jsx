@@ -6,13 +6,18 @@ import VideoPlayer from './components/VideoPlayer';
 
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "dmax" },
-  { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "tlc" }
+  { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "tlc" },
+  { name: "SPOR", url: "https://raw.githubusercontent.com/sarapcanagii/Pitipitii/refs/heads/master/NeonSpor/NeonSpor.m3u8", platform: "spor" },
+  { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/GitLatte/patr0n/site/lists/power-sinema.m3u", platform: "sinema" },
+  { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/GitLatte/patr0n/site/lists/power-yabanci-dizi.m3u", platform: "dizi" }
 ];
 
 const imageMap = {
   "DMAX": "/images/dmax.jpg",
   "TLC": "/images/tlc.jpg",
-  "Discovery Channel": "/images/discovery.jpg"
+  "SPOR": "/images/spor.jpg",
+  "SİNEMA": "/images/sinema.jpg",
+  "DİZİ": "/images/dizi.jpg",
 };
 
 function App() {
@@ -43,6 +48,21 @@ function App() {
       });
   }, [selectedSource]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isWatching) {
+          setIsWatching(false);
+        } else if (selectedGroup) {
+          setSelectedGroup(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isWatching, selectedGroup]);
+
   const allPrograms = Object.keys(groupedChannels);
   const filteredPrograms = allPrograms.filter(name => {
     const platform = groupedChannels[name]?.[0]?.platform || '';
@@ -59,7 +79,7 @@ function App() {
         <PlatformSidebar
           selected={selectedPlatform}
           onSelect={(platformName) => {
-            const source = SOURCES.find(s => s.platform === platformName.toLowerCase());
+            const source = SOURCES.find(s => s.name === platformName || s.platform === platformName.toLowerCase());
             if (source) {
               setSelectedSource(source);
             }

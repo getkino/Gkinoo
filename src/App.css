@@ -40,3 +40,8 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Scrollbar'ı tamamen gizle */
+::-webkit-scrollbar {
+  display: none;
+}
