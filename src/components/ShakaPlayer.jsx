@@ -1,6 +1,7 @@
 // src/components/ShakaPlayer.jsx
 import { useEffect, useRef, useState } from 'react';
 import shaka from 'shaka-player';
+import Hls from 'hls.js';
 
 export default function ShakaPlayer({ url, onExit }) {
   const videoRef = useRef(null);
@@ -11,22 +12,42 @@ export default function ShakaPlayer({ url, onExit }) {
 
   useEffect(() => {
     const video = videoRef.current;
-    const player = new shaka.Player(video);
-    playerRef.current = player;
 
-    shaka.polyfill.installAll();
+    const setupShaka = () => {
+      const player = new shaka.Player(video);
+      playerRef.current = player;
 
-    player.addEventListener('error', e => console.error('Shaka error', e.detail));
+      shaka.polyfill.installAll();
 
-    player.load(url).then(() => {
-      const tracks = player.getVariantTracks();
-      setQualities(tracks);
-      player.configure({ abr: { enabled: true } });
-    });
+      player.addEventListener('error', e => console.error('Shaka error', e.detail));
+
+      player.load(url).then(() => {
+        const tracks = player.getVariantTracks();
+        setQualities(tracks);
+        player.configure({ abr: { enabled: true } });
+      });
+    };
+
+    const fallbackToHls = () => {
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+      }
+    };
+
+    try {
+      setupShaka();
+    } catch (err) {
+      console.warn('Shaka failed, trying HLS.js fallback:', err);
+      fallbackToHls();
+    }
 
     const handleKey = (e) => {
       if (e.key === 'Escape') {
-        player.pause();
+        video.pause();
         onExit?.();
       }
     };
@@ -34,18 +55,18 @@ export default function ShakaPlayer({ url, onExit }) {
     window.addEventListener('keydown', handleKey);
     return () => {
       window.removeEventListener('keydown', handleKey);
-      player.destroy();
+      playerRef.current?.destroy();
     };
   }, [url, onExit]);
 
   const handleQualitySelect = (track) => {
-    playerRef.current.configure({ abr: { enabled: false } });
-    playerRef.current.selectVariantTrack(track, true);
+    playerRef.current?.configure({ abr: { enabled: false } });
+    playerRef.current?.selectVariantTrack(track, true);
     setSelectedQuality(track.id);
   };
 
   const handleAuto = () => {
-    playerRef.current.configure({ abr: { enabled: true } });
+    playerRef.current?.configure({ abr: { enabled: true } });
     setSelectedQuality('auto');
   };
 
