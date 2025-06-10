@@ -35,7 +35,7 @@ function convertVidmodyLink(url) {
   const match = url.match(/vidmody\.com\/vs\/(tt\d+)/);
   if (match) {
     const imdbId = match[1];
-    return `https://vidmody.com/mm/${imdbId}//main/index-v1-a1.m3u8`;
+    return `https://vidmody.com/mm/${imdbId}/main/index-v1-a1.m3u8`;
   }
   return url;
 }
