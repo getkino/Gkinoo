@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { parseM3U } from './utils/parseM3U';
 import PlatformSidebar from './components/PlatformSidebar';
 import ChannelGrid from './components/ChannelGrid';
-import ShakaPlayer from './components/ShakaPlayer';
+import ShakaPlayer from './components/ShakaPlayer'; // Yeni fallback destekli player
 
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "dmax" },

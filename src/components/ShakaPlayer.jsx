@@ -1,4 +1,3 @@
-// src/components/ShakaPlayer.jsx
 import { useEffect, useRef, useState } from 'react';
 import shaka from 'shaka-player';
 import Hls from 'hls.js';
@@ -13,36 +12,40 @@ export default function ShakaPlayer({ url, onExit }) {
   useEffect(() => {
     const video = videoRef.current;
 
-    const setupShaka = () => {
-      const player = new shaka.Player(video);
-      playerRef.current = player;
+    const isM3U = url.includes('.m3u') || url.includes('.m3u8') || url.includes('application/vnd.apple.mpegurl');
 
-      shaka.polyfill.installAll();
+    const setupShaka = async () => {
+      try {
+        shaka.polyfill.installAll();
+        const player = new shaka.Player(video);
+        playerRef.current = player;
 
-      player.addEventListener('error', e => console.error('Shaka error', e.detail));
-
-      player.load(url).then(() => {
+        await player.load(url);
         const tracks = player.getVariantTracks();
         setQualities(tracks);
         player.configure({ abr: { enabled: true } });
-      });
+      } catch (err) {
+        console.warn('Shaka failed, trying HLS.js fallback:', err);
+        fallbackToHlsOrNative();
+      }
     };
 
-    const fallbackToHls = () => {
-      if (Hls.isSupported()) {
+    const fallbackToHlsOrNative = () => {
+      if (isM3U && Hls.isSupported()) {
         const hls = new Hls();
         hls.loadSource(url);
         hls.attachMedia(video);
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = url;
+      } else {
+        video.src = url;
       }
     };
 
-    try {
+    if (isM3U) {
       setupShaka();
-    } catch (err) {
-      console.warn('Shaka failed, trying HLS.js fallback:', err);
-      fallbackToHls();
+    } else {
+      video.src = url; // mp4, webm vs.
     }
 
     const handleKey = (e) => {
@@ -79,9 +82,8 @@ export default function ShakaPlayer({ url, onExit }) {
         style={{ width: '100%', height: '100%' }}
       />
 
-      {/* Kalite Seçim Paneli */}
-      <div
-        style={{
+      {qualities.length > 0 && (
+        <div style={{
           position: 'absolute',
           top: 20,
           right: 20,
@@ -91,43 +93,30 @@ export default function ShakaPlayer({ url, onExit }) {
           padding: '10px',
           borderRadius: '10px',
           boxShadow: '0 0 10px #000'
-        }}
-      >
-        <button
-          onClick={handleAuto}
-          style={{
+        }}>
+          <button onClick={handleAuto} style={{
             marginBottom: '8px',
             background: selectedQuality === 'auto' ? 'cyan' : '#222',
             color: 'white',
-            border: 'none',
             padding: '6px 12px',
             borderRadius: '5px',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
-        >
-          Otomatik
-        </button>
+            border: 'none'
+          }}>Otomatik</button>
 
-        {qualities.map((track) => (
-          <button
-            key={track.id}
-            onClick={() => handleQualitySelect(track)}
-            style={{
+          {qualities.map((track) => (
+            <button key={track.id} onClick={() => handleQualitySelect(track)} style={{
               margin: '4px 0',
               background: selectedQuality === track.id ? 'cyan' : '#222',
               color: 'white',
-              border: 'none',
               padding: '6px 12px',
               borderRadius: '5px',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            {track.height}p
-          </button>
-        ))}
-      </div>
+              border: 'none'
+            }}>
+              {track.height}p
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
-} 
+}
