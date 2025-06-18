@@ -5,7 +5,8 @@ const platforms = [
   { name: "TLC", logo: "/images/tlc.jpg" },
   { name: "SPOR", logo: "/images/spor.jpg" },
   { name: "POWER SİNEMA", logo: "/images/sinema.jpg" },
-  { name: "POWER DİZİ", logo: "/images/dizi.jpg" }
+  { name: "POWER DİZİ", logo: "/images/dizi.jpg" },
+  { name: "CARTOON NETWORK", logo: "/images/cartoon.jpg" }
 ];
 
 export default function PlatformSidebar({ selected, onSelect }) {

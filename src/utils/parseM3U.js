@@ -20,7 +20,10 @@ export function parseM3U(m3uContent) {
       current.logo = logoMatch ? logoMatch[1] : null;
 
     } else if (line.startsWith('http')) {
-      current.url = convertVidmodyLink(line);
+      // 👇 Buraya sadece bu satırı ekliyoruz
+      const finalUrl = line.includes('diziyou7.com') ? line.replace('/play.m3u8', '/1080p.m3u8') : line;
+
+      current.url = convertVidmodyLink(finalUrl); // mevcut dönüşüm fonksiyonu zaten burada
       if (!groups[current.group]) groups[current.group] = [];
       groups[current.group].push({ ...current });
       current = {};
@@ -39,4 +42,3 @@ function convertVidmodyLink(url) {
   }
   return url;
 }
-

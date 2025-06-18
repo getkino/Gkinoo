@@ -9,7 +9,8 @@ const SOURCES = [
   { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "tlc" },
   { name: "SPOR", url: "https://raw.githubusercontent.com/sarapcanagii/Pitipitii/refs/heads/master/NeonSpor/NeonSpor.m3u8", platform: "spor" },
   { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/GitLatte/patr0n/site/lists/power-sinema.m3u", platform: "sinema" },
-  { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/GitLatte/patr0n/site/lists/power-yabanci-dizi.m3u", platform: "dizi" }
+  { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/GitLatte/patr0n/site/lists/power-yabanci-dizi.m3u", platform: "dizi" },
+  { name: "CARTOON NETWORK", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u", platform: "cartoon" } 
 ];
 
 const imageMap = {
@@ -18,6 +19,7 @@ const imageMap = {
   "SPOR": "/images/spor.jpg",
   "SİNEMA": "/images/sinema.jpg",
   "DİZİ": "/images/dizi.jpg",
+  "CARTOON": "/images/cartoon.jpg",
 };
 
 function App() {
