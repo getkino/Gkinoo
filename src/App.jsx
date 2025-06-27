@@ -8,8 +8,8 @@ const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "dmax" },
   { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "tlc" },
   { name: "SPOR", url: "https://raw.githubusercontent.com/sarapcanagii/Pitipitii/refs/heads/master/NeonSpor/NeonSpor.m3u8", platform: "spor" },
-  { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/getkino/kinoo/refs/heads/main/rectv_movies.m3u", platform: "sinema" },
-  { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/getkino/kinoo/refs/heads/main/rectv_series.m3u", platform: "dizi" },
+  { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_movies.m3u", platform: "sinema" },
+  { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u", platform: "dizi" },
   { name: "CARTOON NETWORK", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u", platform: "cartoon" } 
 ];
 

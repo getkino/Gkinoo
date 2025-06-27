@@ -20,10 +20,16 @@ export function parseM3U(m3uContent) {
       current.logo = logoMatch ? logoMatch[1] : null;
 
     } else if (line.startsWith('http')) {
-      // 👇 Buraya sadece bu satırı ekliyoruz
-      const finalUrl = line.includes('diziyou7.com') ? line.replace('/play.m3u8', '/1080p.m3u8') : line;
+      // diziyou7.com için özel dönüşüm
+      let finalUrl = line.includes('diziyou7.com') ? line.replace('/play.m3u8', '/1080p.m3u8') : line;
 
-      current.url = convertVidmodyLink(finalUrl); // mevcut dönüşüm fonksiyonu zaten burada
+      // load.rectv2024live.com için proxy ekle (film ve dizi grupları için)
+      if ((current.group && (current.group.toLowerCase().includes('dizi') || current.group.toLowerCase().includes('sinema') || current.group.toLowerCase().includes('film')))
+        && finalUrl.startsWith('https://load.rectv2024live.com/')) {
+        finalUrl = 'https://1.nejyoner19.workers.dev/url=' + finalUrl;
+      }
+
+      current.url = finalUrl;
       if (!groups[current.group]) groups[current.group] = [];
       groups[current.group].push({ ...current });
       current = {};
@@ -33,12 +39,4 @@ export function parseM3U(m3uContent) {
   return groups;
 }
 
-// Eğer vidmody.com/vs/... yapısındaysa, .m3u8'e çevir
-function convertVidmodyLink(url) {
-  const match = url.match(/vidmody\.com\/vs\/(tt\d+)/);
-  if (match) {
-    const imdbId = match[1];
-    return `https://vidmody.com/mm/${imdbId}/main/index.m3u8`;
-  }
-  return url;
-}
+

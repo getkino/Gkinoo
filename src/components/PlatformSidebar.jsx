@@ -20,7 +20,7 @@ export default function PlatformSidebar({ selected, onSelect }) {
       height: '100vh',
       overflowY: 'auto'
     }}>
-      <h2 style={{ marginBottom: '20px' }}>📺 Platformlar</h2>
+      <h2 style={{ marginBottom: '20px' }}>📺 Kategoriler</h2>
       {platforms.map((platform, index) => (
         <div
           key={index}
@@ -32,8 +32,12 @@ export default function PlatformSidebar({ selected, onSelect }) {
             marginBottom: '10px',
             cursor: 'pointer',
             borderRadius: '8px',
-            background: selected === platform.name ? '#1a1a1a' : 'transparent',
-            border: selected === platform.name ? '1px solid #444' : 'none'
+            background: selected === platform.name ? '#fff' : 'transparent', // Seçili olana beyaz
+            border: selected === platform.name ? '2.5px solid #4fc3f7' : '2px solid #444',
+            boxShadow: selected === platform.name ? '0 0 16px #4fc3f7' : 'none',
+            color: selected === platform.name ? '#222' : 'white', // Seçili olunca koyu yazı
+            fontWeight: selected === platform.name ? 'bold' : 'normal',
+            transition: 'box-shadow 0.2s, border 0.2s, background 0.2s, color 0.2s, font-weight 0.2s'
           }}
         >
           <img
@@ -49,21 +53,6 @@ export default function PlatformSidebar({ selected, onSelect }) {
           <span>{platform.name}</span>
         </div>
       ))}
-
-      <div
-        onClick={() => onSelect(null)}
-        style={{
-          marginTop: '20px',
-          padding: '10px',
-          background: selected === null ? '#1a1a1a' : 'transparent',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          textAlign: 'center',
-          border: selected === null ? '1px solid #444' : 'none'
-        }}
-      >
-        🔍 Tüm Kanalları Keşfet
-      </div>
     </div>
   );
 }
