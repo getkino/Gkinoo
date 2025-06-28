@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { parseM3U } from './utils/parseM3U';
 import PlatformSidebar from './components/PlatformSidebar';
 import ChannelGrid from './components/ChannelGrid';
-import ShakaPlayer from './components/ShakaPlayer'; // Yeni fallback destekli player
+import SimpleHlsPlayer from './components/SimpleHlsPlayer';
 
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "dmax" },
   { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "tlc" },
   { name: "SPOR", url: "https://raw.githubusercontent.com/sarapcanagii/Pitipitii/refs/heads/master/NeonSpor/NeonSpor.m3u8", platform: "spor" },
+  { name: "BEİN ÖZET", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/beinozet.m3u", platform: "beinozet" },
   { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_movies.m3u", platform: "sinema" },
   { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u", platform: "dizi" },
   { name: "CARTOON NETWORK", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u", platform: "cartoon" } 
@@ -17,6 +18,7 @@ const imageMap = {
   "DMAX": "/images/dmax.jpg",
   "TLC": "/images/tlc.jpg",
   "SPOR": "/images/spor.jpg",
+  "BEİN ÖZET": "/images/spor.jpg",
   "SİNEMA": "/images/sinema.jpg",
   "DİZİ": "/images/dizi.jpg",
   "CARTOON": "/images/cartoon.jpg",
@@ -111,19 +113,43 @@ function App() {
         )}
 
         {isWatching && selectedChannel ? (
-          <ShakaPlayer url={selectedChannel.url} onExit={() => setIsWatching(false)} />
+          <SimpleHlsPlayer url={selectedChannel.url} />
         ) : selectedGroup ? (
-          <ChannelGrid
-            channels={flatEpisodes}
-            onSelect={(ch) => {
-              setSelectedChannel(ch);
-              setIsWatching(true);
-            }}
-            focusedIndex={focusedIndex}
-            setFocusedIndex={setFocusedIndex}
-            imageMap={imageMap}
-            isProgramPage={false}
-          />
+          <>
+            <div style={{ padding: '20px' }}>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Bölüm ara..."
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  fontSize: '1rem',
+                  borderRadius: '8px',
+                  border: '1px solid #444',
+                  background: '#1e1e1e',
+                  color: 'white',
+                  marginBottom: '20px'
+                }}
+              />
+            </div>
+            <ChannelGrid
+              channels={flatEpisodes.filter(ch =>
+                searchTerm.trim() === '' ||
+                ch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                ch.title?.toLowerCase().includes(searchTerm.toLowerCase())
+              )}
+              onSelect={(ch) => {
+                setSelectedChannel(ch);
+                setIsWatching(true);
+              }}
+              focusedIndex={focusedIndex}
+              setFocusedIndex={setFocusedIndex}
+              imageMap={imageMap}
+              isProgramPage={false}
+            />
+          </>
         ) : (
           <ChannelGrid
             channels={filteredPrograms.map(name => ({
