@@ -4,6 +4,7 @@ const platforms = [
   { name: "DMAX", logo: "/images/dmax.jpg" },
   { name: "TLC", logo: "/images/tlc.jpg" },
   { name: "SPOR", logo: "/images/spor.jpg" },
+  { name: "BEİN ÖZET", logo: "/images/spor.jpg" },
   { name: "POWER SİNEMA", logo: "/images/sinema.jpg" },
   { name: "POWER DİZİ", logo: "/images/dizi.jpg" },
   { name: "CARTOON NETWORK", logo: "/images/cartoon.jpg" }
