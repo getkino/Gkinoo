@@ -72,3 +72,17 @@ button:focus-visible {
   display: none;
 }
 
+/* Firefox için scrollbar gizleme */
+html {
+  scrollbar-width: none;
+}
+
+/* Mobilde tam ekran ve overflow düzeltmesi */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  min-height: 100vh;
+  min-width: 320px;
+  box-sizing: border-box;
+}
+

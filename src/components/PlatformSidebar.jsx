@@ -7,6 +7,7 @@ const platforms = [
   { name: "BEİN ÖZET", logo: "/images/spor.jpg" },
   { name: "POWER SİNEMA", logo: "/images/sinema.jpg" },
   { name: "POWER DİZİ", logo: "/images/dizi.jpg" },
+  { name: "KABLO TV", logo: "/images/kablotv.jpg" },
   { name: "CARTOON NETWORK", logo: "/images/cartoon.jpg" }
 ];
 
@@ -54,6 +55,20 @@ export default function PlatformSidebar({ selected, onSelect }) {
           <span>{platform.name}</span>
         </div>
       ))}
+      <div
+        style={{
+          marginTop: 'auto',
+          color: '#e4a951',
+          fontSize: '1rem',
+          textAlign: 'center',
+          letterSpacing: '0.5px',
+          opacity: 0.85,
+          fontWeight: 500,
+          padding: '16px 0 8px 0'
+        }}
+      >
+        🍿 Kinoo Ekibi tarafından tasarlandı.
+      </div>
     </div>
   );
 }

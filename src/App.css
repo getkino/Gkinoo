@@ -3,6 +3,15 @@
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  scrollbar-width: none; /* Firefox için scrollbar gizleme */
+}
+
+/* Mobilde ve tam ekranda taşma/overflow önlemi */
+html, body, #root {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100vh;
+  box-sizing: border-box;
 }
 
 .logo {
@@ -45,3 +54,4 @@
 ::-webkit-scrollbar {
   display: none;
 }
+

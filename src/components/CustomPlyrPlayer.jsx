@@ -7,15 +7,28 @@ import 'plyr/dist/plyr.css';
 export default function CustomPlyrPlayer({ url, onExit }) {
   const videoRef = useRef(null);
   const playerRef = useRef(null);
+  const hlsRef = useRef(null);
 
   useEffect(() => {
     const video = videoRef.current;
 
+    // Destroy previous Plyr and Hls instances if any
+    if (playerRef.current) {
+      playerRef.current.destroy();
+      playerRef.current = null;
+    }
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    let hls;
     if (Hls.isSupported()) {
-      const hls = new Hls();
+      hls = new Hls();
       hls.loadSource(url);
       hls.attachMedia(video);
-    } else {
+      hlsRef.current = hls;
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = url;
     }
 
@@ -28,19 +41,42 @@ export default function CustomPlyrPlayer({ url, onExit }) {
       if (e.key === 'Escape') {
         onExit?.();
         playerRef.current?.pause();
+        e.preventDefault();
+      } else if (e.key === ' ') {
+        playerRef.current?.togglePlay();
+        e.preventDefault();
+      } else if (e.key === 'ArrowRight') {
+        playerRef.current?.forward?.(10);
+        e.preventDefault();
+      } else if (e.key === 'ArrowLeft') {
+        playerRef.current?.rewind?.(10);
+        e.preventDefault();
+      } else if (e.key === 'ArrowUp') {
+        playerRef.current?.volume = Math.min(1, playerRef.current?.volume + 0.1);
+        e.preventDefault();
+      } else if (e.key === 'ArrowDown') {
+        playerRef.current?.volume = Math.max(0, playerRef.current?.volume - 0.1);
+        e.preventDefault();
       }
     };
     window.addEventListener('keydown', handleKey);
 
     return () => {
       playerRef.current?.destroy();
+      hlsRef.current?.destroy();
       window.removeEventListener('keydown', handleKey);
     };
   }, [url, onExit]);
 
   return (
     <div style={{ width: '100%', height: '100%', background: 'black' }}>
-      <video ref={videoRef} className="plyr-react plyr" playsInline controls />
+      <video
+        ref={videoRef}
+        className="plyr-react plyr"
+        playsInline
+        controls
+        style={{ width: '100%', height: '100%' }}
+      />
     </div>
   );
 }

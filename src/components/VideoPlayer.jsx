@@ -132,7 +132,12 @@ export default function VideoPlayer({ url, fullscreen, onExit }) {
             <div className="exo-player-settings" style={{position:'absolute',top:'20%',right:'10%',background:'#222',color:'white',padding:'15px',borderRadius:'8px'}}>
               <div style={{marginBottom:'10px'}}>🏞 Kalite</div>
               {qualityList.map((q,i) => (
-                <div key={i} onClick={()=>changeQuality(i)} style={{padding:'5px',background:hlsInstance.currentLevel===i?'#444':'transparent'}}>{q.height}p</div>
+                <div key={i} onClick={()=>changeQuality(i)} style={{padding:'5px',background:hlsInstance.currentLevel===i?'#444':'transparent'}}>
+                  {q.height}p
+                  {hlsInstance.currentLevel === i && (
+                    <span style={{marginLeft:8, color:'#4fc3f7', fontWeight:'bold'}}>&nbsp;●</span>
+                  )}
+                </div>
               ))}
               {subtitleList.length > 0 && (
                 <>
@@ -143,6 +148,26 @@ export default function VideoPlayer({ url, fullscreen, onExit }) {
                   ))}
                 </>
               )}
+            </div>
+          )}
+          {/* Seçili kaliteyi gösteren badge */}
+          {qualityList.length > 0 && hlsInstance && hlsInstance.currentLevel >= 0 && (
+            <div style={{
+              position: 'absolute',
+              bottom: 60,
+              right: 30,
+              background: '#222',
+              color: '#4fc3f7',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '1rem',
+              fontWeight: 600,
+              opacity: 0.92,
+              zIndex: 10
+            }}>
+              {qualityList[hlsInstance.currentLevel]?.height
+                ? `${qualityList[hlsInstance.currentLevel].height}p`
+                : 'Otomatik'}
             </div>
           )}
         </>

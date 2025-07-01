@@ -1,12 +1,38 @@
-# React + Vite
+# GKinoo IPTV Uygulaması
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+GKinoo, çeşitli kaynaklarından canlı TV, dizi, film ve çizgi film içeriklerini kolayca keşfetmenizi ve izlemenizi sağlayan modern bir web uygulamasıdır. Uygulama React ve Vite ile geliştirilmiştir.
 
-Currently, two official plugins are available:
+## Özellikler
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Platform Seçimi:** DMAX, TLC, Spor, Sinema, Dizi ve Cartoon Network gibi popüler platformlardan içeriklere erişim.
+- **Kategoriler ve Programlar:** Kanallar ve programlar arasında kolayca gezinin, arama yapın.
+- **Uzaktan Kumanda Desteği:** Yön tuşları ve Enter ile kategori ve içeriklerde gezinebilme.
+- **Hızlı ve Modern Arayüz:** Kullanıcı dostu, sade ve koyu temalı arayüz.
+- **HLS Player:** Canlı yayınları ve içerikleri doğrudan uygulama üzerinden izleyin.
+- **Mobil ve Masaüstü Uyumluluğu:** Tüm cihazlarda sorunsuz kullanım.
 
-## Expanding the ESLint configuration
+## Kurulum ve Çalıştırma
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. Bağımlılıkları yükleyin:
+   ```bash
+   npm install
+   ```
+2. Geliştirme sunucusunu başlatın:
+   ```bash
+   npm run dev
+   ```
+3. Tarayıcınızda `http://localhost:5173` adresini ziyaret edin.
+
+## Kaynaklar
+
+- [React](https://react.dev/)
+- [Vite](https://vitejs.dev/)
+- [HLS.js](https://github.com/video-dev/hls.js/)
+- [Legal-IPTV kaynakları](https://github.com/UzunMuhalefet/Legal-IPTV)
+
+## Lisans
+
+Bu proje yalnızca eğitim ve kişisel kullanım amaçlıdır. İçeriklerin telif haklarına dikkat ediniz.
+
+---
+GKinoo IPTV © 2024
