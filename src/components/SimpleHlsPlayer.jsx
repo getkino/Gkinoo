@@ -99,7 +99,7 @@ export default function SimpleHlsPlayer({ url }) {
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <style>{`
         video::cue {
-          background: rgba(0, 0, 0, 0) !important;
+          background: rgba(0, 0, 0, 0.14) !important;
           color: white !important;
           font-size: 1.2em;
           text-shadow: 0 1px 2px black;
