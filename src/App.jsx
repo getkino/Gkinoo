@@ -5,6 +5,7 @@ import ChannelGrid from './components/ChannelGrid';
 import SimpleHlsPlayer from './components/SimpleHlsPlayer'; // ShakaPlayer or RedirectHlsPlayer based on your preference
 import 'video.js/dist/video-js.css';
 
+
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "dmax" },
   { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "tlc" },
