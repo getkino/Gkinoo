@@ -18,13 +18,13 @@ function formatTime(seconds) {
 export default function AdvancedHlsPlayer({ url }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
+  const buttonStates = useRef({});
 
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(1);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFit, setIsFit] = useState('contain');
 
   const [selectedAudio, setSelectedAudio] = useState(0);
@@ -33,10 +33,9 @@ export default function AdvancedHlsPlayer({ url }) {
   const [subtitleTracks, setSubtitleTracks] = useState([]);
   const [qualityLevels, setQualityLevels] = useState([]);
 
-  const [showAudioOptions, setShowAudioOptions] = useState(false);
-  const [showSubtitleOptions, setShowSubtitleOptions] = useState(false);
   const [showSpeedOptions, setShowSpeedOptions] = useState(false);
   const [showLangOptions, setShowLangOptions] = useState(false);
+  const [showSubtitleOptions, setShowSubtitleOptions] = useState(false);
   const [showQualityOptions, setShowQualityOptions] = useState(false);
 
   const [notification, setNotification] = useState('');
@@ -45,14 +44,22 @@ export default function AdvancedHlsPlayer({ url }) {
   const [progressBarVisible, setProgressBarVisible] = useState(true);
   const [notificationTimer, setNotificationTimer] = useState(null);
 
+  const enterFullscreen = () => {
+    const container = document.getElementById('player-container');
+    if (container?.requestFullscreen) {
+      container.requestFullscreen().catch(err => {
+        console.warn('Tam ekran başarısız:', err);
+      });
+    }
+  };
+
   useEffect(() => {
     const video = videoRef.current;
-    const container = document.getElementById('player-container');
-    if (!video || !container) return;
+    if (!video) return;
 
+    enterFullscreen();
     video.tabIndex = 0;
     video.focus();
-    container.requestFullscreen?.().then(() => setIsFullscreen(true));
 
     const hls = new Hls();
     hlsRef.current = hls;
@@ -94,47 +101,91 @@ export default function AdvancedHlsPlayer({ url }) {
   }, [url]);
 
   useEffect(() => {
-    const onKeyDown = (e) => handleKeyPress(e);
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('click', enterFullscreen);
+    window.addEventListener('touchstart', enterFullscreen);
+    return () => {
+      window.removeEventListener('click', enterFullscreen);
+      window.removeEventListener('touchstart', enterFullscreen);
+    };
   }, []);
 
-  const handleKeyPress = (e) => {
-    const video = videoRef.current;
-    if (!video) return;
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      const video = videoRef.current;
+      if (!video) return;
 
-    switch (e.key) {
-      case 'ArrowUp':
-        video.volume = Math.min(1, video.volume + 0.1);
-        setVolume(video.volume);
-        showNotification(`Ses %${Math.round(video.volume * 100)}`);
-        break;
-      case 'ArrowDown':
-        video.volume = Math.max(0, video.volume - 0.1);
-        setVolume(video.volume);
-        showNotification(`Ses %${Math.round(video.volume * 100)}`);
-        break;
-      case 'ArrowRight':
-        video.currentTime += 15;
-        showNotification('⏩ 15 saniye ileri');
-        break;
-      case 'ArrowLeft':
-        video.currentTime -= 15;
-        showNotification('⏪ 15 saniye geri');
-        break;
-      case ' ':
-      case 'Enter':
-        video.paused ? video.play() : video.pause();
-        showNotification(video.paused ? '⏸️ Duraklat' : '▶️ Oynat');
-        break;
-      case 't':
-        toggleFit();
-        break;
-    }
-  };
+      switch (e.key) {
+        case 'ArrowUp':
+          video.volume = Math.min(1, video.volume + 0.1);
+          setVolume(video.volume);
+          showNotification(`Ses %${Math.round(video.volume * 100)}`);
+          break;
+        case 'ArrowDown':
+          video.volume = Math.max(0, video.volume - 0.1);
+          setVolume(video.volume);
+          showNotification(`Ses %${Math.round(video.volume * 100)}`);
+          break;
+        case 'ArrowRight':
+          video.currentTime += 15;
+          showNotification('⏩ 15 saniye ileri');
+          break;
+        case 'ArrowLeft':
+          video.currentTime -= 15;
+          showNotification('⏪ 15 saniye geri');
+          break;
+        case ' ':
+        case 'Enter':
+          video.paused ? video.play() : video.pause();
+          showNotification(video.paused ? '⏸️ Duraklat' : '▶️ Oynat');
+          break;
+        case 't':
+          toggleFit();
+          break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
+  useEffect(() => {
+    let frame;
+    const pollGamepad = () => {
+      const gp = navigator.getGamepads?.()[0];
+      if (gp) {
+        const pressed = (i) => gp.buttons[i]?.pressed;
+
+        if (pressed(0) && !buttonStates.current[0]) {
+          const video = videoRef.current;
+          video.paused ? video.play() : video.pause();
+          showNotification(video.paused ? '⏸️ Duraklat' : '▶️ Oynat');
+          buttonStates.current[0] = true;
+        } else if (!pressed(0)) buttonStates.current[0] = false;
+
+        if (pressed(1) && !buttonStates.current[1]) {
+          toggleFit();
+          buttonStates.current[1] = true;
+        } else if (!pressed(1)) buttonStates.current[1] = false;
+
+        if (pressed(15) && !buttonStates.current[15]) {
+          videoRef.current.currentTime += 10;
+          showNotification('⏩ Gamepad sağ');
+          buttonStates.current[15] = true;
+        } else if (!pressed(15)) buttonStates.current[15] = false;
+
+        if (pressed(14) && !buttonStates.current[14]) {
+          videoRef.current.currentTime -= 10;
+          showNotification('⏪ Gamepad sol');
+          buttonStates.current[14] = true;
+        } else if (!pressed(14)) buttonStates.current[14] = false;
+      }
+      frame = requestAnimationFrame(pollGamepad);
+    };
+    frame = requestAnimationFrame(pollGamepad);
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   const toggleFit = () => {
-    setIsFit((prev) => {
+    setIsFit(prev => {
       const next = prev === 'contain' ? 'cover' : 'contain';
       showNotification(next === 'contain' ? 'Fit: Sığdır' : 'Fit: Doldur');
       return next;
@@ -167,32 +218,6 @@ export default function AdvancedHlsPlayer({ url }) {
       window.removeEventListener('touchstart', onTouchStart);
     };
   }, [notificationTimer]);
-
-  useEffect(() => {
-    let frame;
-    const pollGamepad = () => {
-      const gp = navigator.getGamepads?.()[0];
-      if (gp) {
-        if (gp.buttons[0]?.pressed) {
-          const video = videoRef.current;
-          video.paused ? video.play() : video.pause();
-          showNotification(video.paused ? '⏸️ Duraklat' : '▶️ Oynat');
-        }
-        if (gp.buttons[1]?.pressed) toggleFit();
-        if (gp.buttons[15]?.pressed) {
-          videoRef.current.currentTime += 10;
-          showNotification('⏩ Gamepad sağ');
-        }
-        if (gp.buttons[14]?.pressed) {
-          videoRef.current.currentTime -= 10;
-          showNotification('⏪ Gamepad sol');
-        }
-      }
-      frame = requestAnimationFrame(pollGamepad);
-    };
-    frame = requestAnimationFrame(pollGamepad);
-    return () => cancelAnimationFrame(frame);
-  }, []);
   const seekTo = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = (e.clientX - rect.left) / rect.width;
@@ -239,23 +264,37 @@ export default function AdvancedHlsPlayer({ url }) {
   };
 
   return (
-    <div
-      id="player-container"
-      style={{ position: 'relative', background: '#000', width: '100%', height: '100%' }}
-    >
+    <div id="player-container" style={{
+      position: 'fixed',
+      inset: 0,
+      background: '#000',
+      zIndex: 999
+    }}>
       <video
         ref={videoRef}
         tabIndex="0"
         autoPlay
         controls={false}
-        style={{ width: '100%', height: '100%', objectFit: isFit }}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: isFit,
+          backgroundColor: 'transparent',
+          outline: 'none',
+          willChange: 'transform'
+        }}
       />
       <style>{`
         video::cue {
           background: rgba(0, 0, 0, 0.35);
           color: white;
-          font-size: 16px;
+          font-size: clamp(22px, 3vw, 36px); /* ✅ Büyütülmüş ve responsive altyazı */
           text-shadow: 1px 1px 3px black;
+          line-height: 1.5;
+          font-family: 'Segoe UI', sans-serif;
+        }
+        video:focus {
+          outline: none;
         }
       `}</style>
 
@@ -266,17 +305,17 @@ export default function AdvancedHlsPlayer({ url }) {
           top: '20px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(0, 0, 0, 0.7)',
+          background: 'rgba(0,0,0,0.7)',
           color: '#fff',
           padding: '8px 16px',
-          borderRadius: '5px',
-          zIndex: 200,
+          borderRadius: '6px',
+          zIndex: 1000,
         }}>
           {notification}
         </div>
       )}
 
-      {/* Süre & Progress Bar */}
+      {/* Süre ve progress bar */}
       {progressBarVisible && (
         <>
           <div style={{
@@ -289,36 +328,30 @@ export default function AdvancedHlsPlayer({ url }) {
             padding: '4px 8px',
             borderRadius: '4px',
             zIndex: 100,
-            transition: 'opacity 0.4s ease-in-out',
           }}>
             {formatTime(currentTime)} / {formatTime(duration)}
           </div>
-          <div
-            onClick={seekTo}
-            style={{
-              position: 'absolute',
-              bottom: '90px',
-              left: 0,
-              width: '100%',
-              height: '6px',
-              background: '#111',
-              cursor: 'pointer',
-              zIndex: 99,
-            }}
-          >
-            <div
-              style={{
-                width: `${progress}%`,
-                height: '100%',
-                background: 'linear-gradient(to right, #e50914, #b81d24)',
-                transition: 'width 0.2s ease',
-              }}
-            />
+          <div onClick={seekTo} style={{
+            position: 'absolute',
+            bottom: '90px',
+            left: 0,
+            width: '100%',
+            height: '6px',
+            background: '#111',
+            cursor: 'pointer',
+            zIndex: 99,
+          }}>
+            <div style={{
+              width: `${progress}%`,
+              height: '100%',
+              background: 'linear-gradient(to right,rgb(229, 9, 20),rgb(184, 29, 36))',
+              transition: 'width 0.2s ease',
+            }} />
           </div>
         </>
       )}
 
-      {/* Animasyonlu Kontroller */}
+      {/* Kontrol Paneli */}
       <div style={{
         position: 'absolute',
         bottom: '20px',
@@ -346,6 +379,9 @@ export default function AdvancedHlsPlayer({ url }) {
             setPlaybackRate(rate);
             if (videoRef.current) videoRef.current.playbackRate = rate;
           }} style={selectStyle}>
+            <option value={0.25}>0.25x</option>
+            <option value={0.50}>0.5x</option>
+            <option value={0.75}>0.75x</option>
             <option value={1}>1x</option>
             <option value={1.25}>1.25x</option>
             <option value={1.5}>1.5x</option>
