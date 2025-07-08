@@ -2,366 +2,411 @@ import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 
 const LANG_MAP = {
-  tr: 'Türkçe', en: 'İngilizce', de: 'Almanca', fr: 'Fransızca', ar: 'Arapça',
-  ru: 'Rusça', es: 'İspanyolca', it: 'İtalyanca', fa: 'Farsça', zh: 'Çince',
-  ja: 'Japonca', ko: 'Korece', ku: 'Kürtçe', az: 'Azerice', sq: 'Arnavutça',
-  bg: 'Bulgarca', el: 'Yunanca', nl: 'Flemenkçe', pl: 'Lehçe', pt: 'Portekizce',
-  ro: 'Romence', sv: 'İsveççe', uk: 'Ukraynaca',
+  tr: 'Türkçe', en: 'İngilizce', de: 'Almanca', fr: 'Fransızca',
+  es: 'İspanyolca', it: 'İtalyanca', ar: 'Arapça', ru: 'Rusça',
+  ja: 'Japonca', ko: 'Korece', fa: 'Farsça', zh: 'Çince',
 };
 
-function getLangLabel(track, idx, prefix = '') {
-  if (track.lang && LANG_MAP[track.lang]) return LANG_MAP[track.lang];
-  if (track.name && track.name.length < 20 && !/\d/.test(track.name)) return track.name;
-  if (track.lang && track.lang.length <= 3) return track.lang.toUpperCase();
-  return `${prefix}${track.id ?? idx + 1}`;
+function formatTime(seconds) {
+  if (isNaN(seconds)) return '00:00:00';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s}`;
 }
 
-export default function SimpleHlsPlayer({ url, videoTitle }) {
+export default function AdvancedHlsPlayer({ url }) {
   const videoRef = useRef(null);
-  const containerRef = useRef(null);
   const hlsRef = useRef(null);
-  const [levels, setLevels] = useState([]);
-  const [selectedLevel, setSelectedLevel] = useState(-1);
+
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFit, setIsFit] = useState('contain');
+
+  const [selectedAudio, setSelectedAudio] = useState(0);
+  const [selectedSubtitle, setSelectedSubtitle] = useState(-1);
   const [audioTracks, setAudioTracks] = useState([]);
-  const [selectedAudioTrack, setSelectedAudioTrack] = useState(0);
   const [subtitleTracks, setSubtitleTracks] = useState([]);
-  const [selectedSubtitleTrack, setSelectedSubtitleTrack] = useState(-1);
-  const [toastMsg, setToastMsg] = useState('');
-  const [volume, setVolume] = useState(1); // Ses seviyesi durumu
-  const [objectFit, setObjectFit] = useState('contain'); // Görüntü fit seçeneği
-  const [playbackRate, setPlaybackRate] = useState(1); // Hız ayarı
+  const [qualityLevels, setQualityLevels] = useState([]);
+
+  const [showAudioOptions, setShowAudioOptions] = useState(false);
+  const [showSubtitleOptions, setShowSubtitleOptions] = useState(false);
+  const [showSpeedOptions, setShowSpeedOptions] = useState(false);
+  const [showLangOptions, setShowLangOptions] = useState(false);
+  const [showQualityOptions, setShowQualityOptions] = useState(false);
+
+  const [notification, setNotification] = useState('');
+  const [notificationVisible, setNotificationVisible] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [progressBarVisible, setProgressBarVisible] = useState(true);
+  const [notificationTimer, setNotificationTimer] = useState(null);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    const container = document.getElementById('player-container');
+    if (!video || !container) return;
 
-    let hls;
-    if (Hls.isSupported()) {
-      hls = new Hls();
-      hlsRef.current = hls;
-      hls.loadSource(url);
-      hls.attachMedia(video);
+    video.tabIndex = 0;
+    video.focus();
+    container.requestFullscreen?.().then(() => setIsFullscreen(true));
 
-      hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-        setLevels(data.levels);
-        hls.currentLevel = -1;
-        hls.subtitleTrack = -1;
-      });
+    const hls = new Hls();
+    hlsRef.current = hls;
+    hls.loadSource(url);
+    hls.attachMedia(video);
 
-      hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_, data) => {
-        setAudioTracks(data.audioTracks);
-      });
-
-      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_, data) => {
-        setSubtitleTracks(data.subtitleTracks);
-        setSelectedSubtitleTrack(-1);
-        hls.subtitleTrack = -1;
-      });
-    } else {
-      video.src = url;
-    }
-
-    const handleKey = (e) => {
-      if (!video) return;
-      if (e.key === 'ArrowLeft') {
-        video.currentTime = Math.max(video.currentTime - 10, 0);
-        showToast('Replay 10');
-      } else if (e.key === 'ArrowRight') {
-        video.currentTime = Math.min(video.currentTime + 10, video.duration);
-        showToast('Forward 10');
-      } else if (e.key === 'ArrowUp') {
-        handleVolumeChange('up');
-        showToast('volume_up');
-      } else if (e.key === 'ArrowDown') {
-        handleVolumeChange('down');
-        showToast('volume_down');
+    hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_, data) => {
+      setAudioTracks(data.audioTracks);
+      const lang = navigator.language.split('-')[0];
+      const idx = data.audioTracks.findIndex(t => t.lang === lang);
+      if (idx >= 0) {
+        hls.audioTrack = idx;
+        setSelectedAudio(idx);
       }
+    });
+
+    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_, data) => {
+      setSubtitleTracks(data.subtitleTracks);
+      hls.subtitleTrack = -1;
+      setSelectedSubtitle(-1);
+      const tracks = video.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        tracks[i].mode = 'disabled';
+      }
+    });
+
+    hls.on(Hls.Events.LEVELS_UPDATED, (_, data) => {
+      setQualityLevels(data.levels);
+    });
+
+    const updateTime = () => {
+      setCurrentTime(video.currentTime);
+      setDuration(video.duration || 0);
+      setProgress((video.currentTime / video.duration) * 100 || 0);
     };
 
-    const showToast = (icon) => {
-      setToastMsg(icon);
-      setTimeout(() => setToastMsg(''), 1500); // Mesajı 1.5 saniye sonra kaybolmasını sağla
-    };
-
-    const enterFullscreen = () => {
-      const container = containerRef.current;
-      if (!container) return;
-
-      if (container.requestFullscreen) container.requestFullscreen();
-      else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-      else if (container.mozRequestFullScreen) container.mozRequestFullScreen();
-      else if (container.msRequestFullscreen) container.msRequestFullscreen();
-    };
-
-    video.addEventListener('loadeddata', enterFullscreen);
-    window.addEventListener('keydown', handleKey);
-
-    return () => {
-      window.removeEventListener('keydown', handleKey);
-      video.removeEventListener('loadeddata', enterFullscreen);
-      if (hls) hls.destroy();
-    };
+    video.addEventListener('timeupdate', updateTime);
+    return () => video.removeEventListener('timeupdate', updateTime);
   }, [url]);
 
-  // Ses seviyesi değişimini kontrol et
-  const handleVolumeChange = (action) => {
+  useEffect(() => {
+    const onKeyDown = (e) => handleKeyPress(e);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const handleKeyPress = (e) => {
     const video = videoRef.current;
     if (!video) return;
-    if (action === 'up') {
-      const newVolume = Math.min(video.volume + 0.1, 1);
-      setVolume(newVolume);
-      video.volume = newVolume;
-    } else if (action === 'down') {
-      const newVolume = Math.max(video.volume - 0.1, 0);
-      setVolume(newVolume);
-      video.volume = newVolume;
+
+    switch (e.key) {
+      case 'ArrowUp':
+        video.volume = Math.min(1, video.volume + 0.1);
+        setVolume(video.volume);
+        showNotification(`Ses %${Math.round(video.volume * 100)}`);
+        break;
+      case 'ArrowDown':
+        video.volume = Math.max(0, video.volume - 0.1);
+        setVolume(video.volume);
+        showNotification(`Ses %${Math.round(video.volume * 100)}`);
+        break;
+      case 'ArrowRight':
+        video.currentTime += 15;
+        showNotification('⏩ 15 saniye ileri');
+        break;
+      case 'ArrowLeft':
+        video.currentTime -= 15;
+        showNotification('⏪ 15 saniye geri');
+        break;
+      case ' ':
+      case 'Enter':
+        video.paused ? video.play() : video.pause();
+        showNotification(video.paused ? '⏸️ Duraklat' : '▶️ Oynat');
+        break;
+      case 't':
+        toggleFit();
+        break;
     }
   };
 
-  // Görüntü fit seçeneklerini değiştir
-  const handleObjectFitChange = () => {
-    const fitOptions = ['contain', 'cover', 'fill', 'none'];
-    const currentIndex = fitOptions.indexOf(objectFit);
-    const nextIndex = (currentIndex + 1) % fitOptions.length;
-    const newFit = fitOptions[nextIndex];
-    setObjectFit(newFit);
-    showToast(newFit); // Toast mesajını güncelle
+  const toggleFit = () => {
+    setIsFit((prev) => {
+      const next = prev === 'contain' ? 'cover' : 'contain';
+      showNotification(next === 'contain' ? 'Fit: Sığdır' : 'Fit: Doldur');
+      return next;
+    });
   };
 
-  // Hız ayarı
-  const handlePlaybackRateChange = (e) => {
-    const newRate = parseFloat(e.target.value);
-    setPlaybackRate(newRate);
-    const video = videoRef.current;
-    if (video) {
-      video.playbackRate = newRate;
+  const showNotification = (msg) => {
+    setNotification(msg);
+    setNotificationVisible(true);
+    setTimeout(() => setNotificationVisible(false), 2000);
+  };
+
+  const showControls = () => {
+    setControlsVisible(true);
+    setProgressBarVisible(true);
+    clearTimeout(notificationTimer);
+    setNotificationTimer(setTimeout(() => {
+      setControlsVisible(false);
+      setProgressBarVisible(false);
+    }, 3000));
+  };
+
+  useEffect(() => {
+    const onMouseMove = () => showControls();
+    const onTouchStart = () => showControls();
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('touchstart', onTouchStart);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('touchstart', onTouchStart);
+    };
+  }, [notificationTimer]);
+
+  useEffect(() => {
+    let frame;
+    const pollGamepad = () => {
+      const gp = navigator.getGamepads?.()[0];
+      if (gp) {
+        if (gp.buttons[0]?.pressed) {
+          const video = videoRef.current;
+          video.paused ? video.play() : video.pause();
+          showNotification(video.paused ? '⏸️ Duraklat' : '▶️ Oynat');
+        }
+        if (gp.buttons[1]?.pressed) toggleFit();
+        if (gp.buttons[15]?.pressed) {
+          videoRef.current.currentTime += 10;
+          showNotification('⏩ Gamepad sağ');
+        }
+        if (gp.buttons[14]?.pressed) {
+          videoRef.current.currentTime -= 10;
+          showNotification('⏪ Gamepad sol');
+        }
+      }
+      frame = requestAnimationFrame(pollGamepad);
+    };
+    frame = requestAnimationFrame(pollGamepad);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  const seekTo = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    const newTime = ratio * duration;
+    if (!isNaN(newTime) && videoRef.current) {
+      videoRef.current.currentTime = newTime;
     }
+  };
+
+  const handleVolumeToggle = () => {
+    const newVolume = volume === 0 ? 1 : 0;
+    setVolume(newVolume);
+    if (videoRef.current) videoRef.current.volume = newVolume;
+    showNotification(newVolume === 0 ? '🔇 Ses Kapalı' : `🔊 Ses %${Math.round(newVolume * 100)}`);
+  };
+
+  const handleQualityChange = (e) => {
+    const level = parseInt(e.target.value, 10);
+    if (hlsRef.current) {
+      if (level === -1) {
+        hlsRef.current.autoLevelEnabled = true;
+      } else {
+        hlsRef.current.autoLevelEnabled = false;
+        hlsRef.current.currentLevel = level;
+      }
+    }
+  };
+
+  const buttonStyle = {
+    background: 'rgba(0, 0, 0, 0.5)',
+    border: 'none',
+    borderRadius: '50%',
+    padding: '10px',
+    cursor: 'pointer',
+  };
+
+  const selectStyle = {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '50px',
+    padding: '6px 10px',
+    cursor: 'pointer',
   };
 
   return (
-    <div ref={containerRef}
-      style={{
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-        zIndex: 1,
-        overflow: 'hidden',
-        backgroundColor: '#121212', // Dark mode için uygun arka plan
-      }}
+    <div
+      id="player-container"
+      style={{ position: 'relative', background: '#000', width: '100%', height: '100%' }}
     >
+      <video
+        ref={videoRef}
+        tabIndex="0"
+        autoPlay
+        controls={false}
+        style={{ width: '100%', height: '100%', objectFit: isFit }}
+      />
       <style>{`
         video::cue {
-          background: rgba(0, 0, 0, 0.14) !important;
-          color: white !important;
-          font-size: 1.2em;
-          text-shadow: 0 1px 2px black;
-        }
-        :fullscreen {
-          width: 100vw;
-          height: 100vh;
-        }
-        video {
-          object-fit: ${objectFit};
-        }
-        .material-icons {
-          font-size: 36px;
-          color: #fff;
-        }
-        .player-controls {
-          position: absolute;
-          top: 20px; /* Üst kısma taşıdım */
-          width: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 20px;
-          z-index: 10;
-        }
-        .player-controls select,
-        .player-controls button {
-          background-color: rgba(0, 0, 0, 0.5);
+          background: rgba(0, 0, 0, 0.35);
           color: white;
-          border: none;
-          border-radius: 50px;
-          padding: 8px 16px;
-          cursor: pointer;
           font-size: 16px;
-        }
-        .player-controls button:hover,
-        .player-controls select:hover {
-          background-color: rgba(0, 0, 0, 0.7);
-        }
-        .toast-message {
-          position: absolute;
-          top: 50%; /* Ortada */
-          left: 50%;
-          transform: translate(-50%, -50%); /* Tam ortalama */
-          background: rgba(0,0,0,0.8);
-          color: #fff;
-          padding: 12px 16px;
-          border-radius: 8px;
-          font-size: 24px; /* İkon boyutu */
-          z-index: 2000;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-
-        /* Geliştirilmiş açılır menü tasarımı */
-        select {
-          padding: 10px 18px;
-          border-radius: 25px;
-          background-color: rgba(30, 30, 30, 0.8);
-          color: #ffffff;
-          border: 1px solid #888;
-          font-size: 14px;
-          font-family: 'Segoe UI', sans-serif;
-          cursor: pointer;
-          appearance: none;
-          -webkit-appearance: none;
-          -moz-appearance: none;
-          min-width: 130px;
-          text-align-last: center;
-          transition: all 0.3s ease;
-        }
-
-        /* Hover ve focus için renk geçişleri */
-        select:hover {
-          background-color: rgba(50, 50, 50, 0.9);
-          border-color: #ff9800;
-        }
-
-        select:focus {
-          outline: none;
-          border-color: #ff5722;
-          box-shadow: 0 0 0 2px rgba(255, 87, 34, 0.4);
-        }
-
-        select::-ms-expand {
-          display: none;
-        }
-
-        select::-webkit-appearance: none;
-
-        /* Açılır menüde simge yerleştirme (arrow) */
-        select {
-          background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15"%3E%3Cpath fill="none" stroke="%23ffffff" stroke-width="2" d="M4 5l3 3 3-3"%3E%3C/path%3E%3C/svg%3E');
-          background-repeat: no-repeat;
-          background-position: right 10px center;
-          background-size: 15px;
-        }
-
-        /* Dropdown içeriği (open state) */
-        select:focus {
-          background-color: rgba(50, 50, 50, 0.9);
-          color: #ffffff;
-        }
-
-        /* Video başlık stili */
-        .video-title {
-          color: #fff;
-          font-size: 24px;
-          text-align: center;
-          margin-bottom: 10px;
+          text-shadow: 1px 1px 3px black;
         }
       `}</style>
 
-      {toastMsg && (
-        <div className="toast-message">
-          <i className="material-icons">{toastMsg === 'Replay 10' ? 'rewind' : toastMsg === 'Forward 10' ? 'fast_forward' : toastMsg}</i> {/* Sadece simge gösterilecek */}
+      {/* Bildirim */}
+      {notificationVisible && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0, 0, 0, 0.7)',
+          color: '#fff',
+          padding: '8px 16px',
+          borderRadius: '5px',
+          zIndex: 200,
+        }}>
+          {notification}
         </div>
       )}
 
-      {/* Video başlığı */}
-      {videoTitle && (
-        <div className="video-title">
-          {videoTitle}
-        </div>
+      {/* Süre & Progress Bar */}
+      {progressBarVisible && (
+        <>
+          <div style={{
+            position: 'absolute',
+            bottom: '100px',
+            left: '12px',
+            color: '#fff',
+            fontSize: '14px',
+            background: 'rgba(0,0,0,0.6)',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            zIndex: 100,
+            transition: 'opacity 0.4s ease-in-out',
+          }}>
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </div>
+          <div
+            onClick={seekTo}
+            style={{
+              position: 'absolute',
+              bottom: '90px',
+              left: 0,
+              width: '100%',
+              height: '6px',
+              background: '#111',
+              cursor: 'pointer',
+              zIndex: 99,
+            }}
+          >
+            <div
+              style={{
+                width: `${progress}%`,
+                height: '100%',
+                background: 'linear-gradient(to right, #e50914, #b81d24)',
+                transition: 'width 0.2s ease',
+              }}
+            />
+          </div>
+        </>
       )}
 
-      <div className="player-controls">
-        <button onClick={() => window.history.back()}>
-          <i className="material-icons">arrow_back</i> {/* Geri git butonu */}
-        </button>
-
-        {levels.length > 1 && (
-          <select value={selectedLevel}
-            onChange={(e) => {
-              const level = parseInt(e.target.value, 10);
-              setSelectedLevel(level);
-              if (hlsRef.current) hlsRef.current.currentLevel = level;
-            }}
-          >
-            <option value={-1}>Otomatik</option>
-            {levels.map((level, idx) => (
-              <option key={idx} value={idx}>
-                {level.height ? `${level.height}p` : `Seviye ${idx + 1}`}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {audioTracks.length > 1 && (
-          <select value={selectedAudioTrack}
-            onChange={(e) => {
-              const id = parseInt(e.target.value, 10);
-              setSelectedAudioTrack(id);
-              if (hlsRef.current) hlsRef.current.audioTrack = id;
-            }}
-          >
-            {audioTracks.map((track, idx) => (
-              <option key={track.id ?? idx} value={track.id ?? idx}>
-                {getLangLabel(track, idx, 'Dil ')}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {subtitleTracks.length > 0 && (
-          <select value={selectedSubtitleTrack}
-            onChange={(e) => {
-              const id = parseInt(e.target.value, 10);
-              setSelectedSubtitleTrack(id);
-              if (hlsRef.current) hlsRef.current.subtitleTrack = id;
-            }}
-          >
-            <option value={-1}>Altyazı Kapalı</option>
-            {subtitleTracks.map((track, idx) => (
-              <option key={track.id ?? idx} value={track.id ?? idx}>
-                {getLangLabel(track, idx, 'Altyazı ')}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {/* Görüntü seçenekleri */}
-        <button onClick={handleObjectFitChange}>
-          <i className="material-icons">aspect_ratio</i> {/* Aspect Ratio Ikonu */}
-        </button>
-
-        {/* Hız ayarı */}
-        <select value={playbackRate} onChange={handlePlaybackRateChange}>
-          <option value={1}>Normal</option>
-          <option value={1.25}>1.25x</option>
-          <option value={1.5}>1.5x</option>
-          <option value={2}>2x</option>
-        </select>
-      </div>
-
+      {/* Animasyonlu Kontroller */}
       <div style={{
         position: 'absolute',
-        top: '0',
-        left: '0',
-        width: '100%',
-        height: '100%',
-        zIndex: 0, // Video en altta
+        bottom: '20px',
+        right: '12px',
+        display: 'flex',
+        gap: 12,
+        alignItems: 'center',
+        zIndex: 100,
+        opacity: controlsVisible ? 1 : 0,
+        transition: 'opacity 0.5s ease',
+        pointerEvents: controlsVisible ? 'auto' : 'none',
       }}>
-        <video
-          ref={videoRef}
-          controls
-          autoPlay
-          style={{ width: '100%', height: '100%' }}
-        />
+        <button onClick={handleVolumeToggle} style={buttonStyle}>
+          <span className="material-icons" style={{ color: '#fff' }}>
+            {volume === 0 ? 'volume_off' : 'volume_up'}
+          </span>
+        </button>
+
+        <button onClick={() => setShowSpeedOptions(!showSpeedOptions)} style={buttonStyle}>
+          <span className="material-icons" style={{ color: '#fff' }}>speed</span>
+        </button>
+        {showSpeedOptions && (
+          <select value={playbackRate} onChange={(e) => {
+            const rate = parseFloat(e.target.value);
+            setPlaybackRate(rate);
+            if (videoRef.current) videoRef.current.playbackRate = rate;
+          }} style={selectStyle}>
+            <option value={1}>1x</option>
+            <option value={1.25}>1.25x</option>
+            <option value={1.5}>1.5x</option>
+            <option value={2}>2x</option>
+          </select>
+        )}
+
+        <button onClick={() => setShowLangOptions(!showLangOptions)} style={buttonStyle}>
+          <span className="material-icons" style={{ color: '#fff' }}>language</span>
+        </button>
+        {showLangOptions && (
+          <select value={selectedAudio} onChange={(e) => {
+            const idx = parseInt(e.target.value, 10);
+            setSelectedAudio(idx);
+            if (hlsRef.current) hlsRef.current.audioTrack = idx;
+          }} style={selectStyle}>
+            {audioTracks.map((track, idx) => (
+              <option key={idx} value={idx}>
+                {LANG_MAP[track.lang] || `Dil ${idx + 1}`}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <button onClick={() => setShowSubtitleOptions(!showSubtitleOptions)} style={buttonStyle}>
+          <span className="material-icons" style={{ color: '#fff' }}>subtitles</span>
+        </button>
+        {showSubtitleOptions && (
+          <select value={selectedSubtitle} onChange={(e) => {
+            const idx = parseInt(e.target.value, 10);
+            setSelectedSubtitle(idx);
+            if (hlsRef.current) hlsRef.current.subtitleTrack = idx;
+            const tracks = videoRef.current?.textTracks;
+            if (tracks && tracks[idx]) tracks[idx].mode = 'showing';
+          }} style={selectStyle}>
+            <option value={-1}>Altyazı Yok</option>
+            {subtitleTracks.map((track, idx) => (
+              <option key={idx} value={idx}>
+                {LANG_MAP[track.lang] || `Dil ${idx + 1}`}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <button onClick={() => setShowQualityOptions(!showQualityOptions)} style={buttonStyle}>
+          <span className="material-icons" style={{ color: '#fff' }}>hd</span>
+        </button>
+        {showQualityOptions && (
+          <select onChange={handleQualityChange} style={selectStyle}>
+            <option value={-1}>Otomatik</option>
+            {qualityLevels.map((level, idx) => (
+              <option key={idx} value={idx}>
+                {level.height}p
+              </option>
+            ))}
+          </select>
+        )}
+
+        <button onClick={toggleFit} style={buttonStyle}>
+          <span className="material-icons" style={{ color: '#fff' }}>fit_screen</span>
+        </button>
       </div>
     </div>
   );
