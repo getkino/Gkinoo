@@ -15,6 +15,7 @@ export default function ChannelList({ onSelect }) {
       "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_movies.m3u",
       "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u",
       "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/denen/kablo.m3u",
+      "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/serifilm.m3u",
       "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u"
     ];
 

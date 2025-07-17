@@ -14,6 +14,7 @@ const SOURCES = [
   { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_movies.m3u", platform: "sinema" },
   { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u", platform: "dizi" },
   { name: "KABLO TV", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/denen/kablo.m3u", platform: "kablotv" },
+  { name: "YEDEK", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/serifilm.m3u", platform: "yedek" },
   { name: "CARTOON NETWORK", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u", platform: "cartoon" } 
 ];
 
@@ -25,6 +26,7 @@ const imageMap = {
   "SİNEMA": "/images/sinema.jpg",
   "DİZİ": "/images/dizi.jpg",
   "KABLO TV": "/images/kablotv.jpg",
+  "YEDEK": "/images/kablotv.jpg",
   "CARTOON": "/images/cartoon.jpg",
 };
 

@@ -8,6 +8,7 @@ const platforms = [
   { name: "POWER SİNEMA", logo: "/images/sinema.jpg" },
   { name: "POWER DİZİ", logo: "/images/dizi.jpg" },
   { name: "KABLO TV", logo: "/images/kablotv.jpg" },
+  { name: "YEDEK", logo: "/images/kablotv.jpg" },
   { name: "CARTOON NETWORK", logo: "/images/cartoon.jpg" }
 ];
 

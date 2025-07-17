@@ -15,7 +15,7 @@ function formatTime(seconds) {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s}`;
 }
 
-export default function AdvancedHlsPlayer({ url }) {
+export default function SimpleHlsPlayer({ url }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const buttonStates = useRef({});
@@ -23,21 +23,23 @@ export default function AdvancedHlsPlayer({ url }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [volume, setVolume] = useState(1);
+  const [bufferedProgress, setBufferedProgress] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFit, setIsFit] = useState('contain');
+  const [isPlaying, setIsPlaying] = useState(true);
 
   const [selectedAudio, setSelectedAudio] = useState(0);
   const [selectedSubtitle, setSelectedSubtitle] = useState(-1);
+  const [selectedButton, setSelectedButton] = useState('turkishDubbed');
+  const [selectedQuality, setSelectedQuality] = useState(-1);
   const [audioTracks, setAudioTracks] = useState([]);
   const [subtitleTracks, setSubtitleTracks] = useState([]);
   const [qualityLevels, setQualityLevels] = useState([]);
 
   const [showSpeedOptions, setShowSpeedOptions] = useState(false);
-  const [showLangOptions, setShowLangOptions] = useState(false);
+  const [showAudioOptions, setShowAudioOptions] = useState(false);
   const [showSubtitleOptions, setShowSubtitleOptions] = useState(false);
   const [showQualityOptions, setShowQualityOptions] = useState(false);
-
   const [notification, setNotification] = useState('');
   const [notificationVisible, setNotificationVisible] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -67,16 +69,28 @@ export default function AdvancedHlsPlayer({ url }) {
     hls.attachMedia(video);
 
     hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_, data) => {
+      console.log('Ses parçaları:', data.audioTracks);
       setAudioTracks(data.audioTracks);
-      const lang = navigator.language.split('-')[0];
-      const idx = data.audioTracks.findIndex(t => t.lang === lang);
+      const idx = data.audioTracks.findIndex(t => t.lang === 'tr');
       if (idx >= 0) {
         hls.audioTrack = idx;
         setSelectedAudio(idx);
+        setSelectedButton('turkishDubbed');
+      } else {
+        console.warn('Türkçe ses parçası bulunamadı, varsayılan dil kullanılıyor');
+        showNotification('Türkçe ses parçası mevcut değil');
+        const lang = navigator.language.split('-')[0];
+        const fallbackIdx = data.audioTracks.findIndex(t => t.lang === lang);
+        if (fallbackIdx >= 0) {
+          hls.audioTrack = fallbackIdx;
+          setSelectedAudio(fallbackIdx);
+          setSelectedButton('original');
+        }
       }
     });
 
     hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_, data) => {
+      console.log('Altyazı parçaları:', data.subtitleTracks);
       setSubtitleTracks(data.subtitleTracks);
       hls.subtitleTrack = -1;
       setSelectedSubtitle(-1);
@@ -87,102 +101,167 @@ export default function AdvancedHlsPlayer({ url }) {
     });
 
     hls.on(Hls.Events.LEVELS_UPDATED, (_, data) => {
+      console.log('Kalite seviyeleri:', data.levels);
       setQualityLevels(data.levels);
+      setSelectedQuality(-1);
+    });
+
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      if (data.fatal) {
+        console.error('HLS fatal hata:', data);
+        showNotification('Hata: Video yüklenemedi');
+      } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        console.warn('HLS medya hatası:', data);
+        showNotification('Medya hatası, lütfen tekrar deneyin');
+      }
     });
 
     const updateTime = () => {
       setCurrentTime(video.currentTime);
       setDuration(video.duration || 0);
       setProgress((video.currentTime / video.duration) * 100 || 0);
+      if (video.buffered.length > 0 && video.duration) {
+        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        setBufferedProgress((bufferedEnd / video.duration) * 100 || 0);
+      }
+      setIsPlaying(!video.paused);
     };
 
     video.addEventListener('timeupdate', updateTime);
-    return () => video.removeEventListener('timeupdate', updateTime);
+    video.addEventListener('play', () => setIsPlaying(true));
+    video.addEventListener('pause', () => setIsPlaying(false));
+
+    return () => {
+      video.removeEventListener('timeupdate', updateTime);
+      video.removeEventListener('play', () => setIsPlaying(true));
+      video.removeEventListener('pause', () => setIsPlaying(false));
+      hls.destroy();
+    };
   }, [url]);
 
-  useEffect(() => {
-    window.addEventListener('click', enterFullscreen);
-    window.addEventListener('touchstart', enterFullscreen);
-    return () => {
-      window.removeEventListener('click', enterFullscreen);
-      window.removeEventListener('touchstart', enterFullscreen);
-    };
-  }, []);
+  const handleLanguageChange = (type) => {
+    const hls = hlsRef.current;
+    const video = videoRef.current;
+    if (!hls || !video) return;
 
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      const video = videoRef.current;
-      if (!video) return;
+    let newAudioIndex = selectedAudio;
+    let newSubtitleIndex = -1;
 
-      switch (e.key) {
-        case 'ArrowUp':
-          video.volume = Math.min(1, video.volume + 0.1);
-          setVolume(video.volume);
-          showNotification(`Ses %${Math.round(video.volume * 100)}`);
-          break;
-        case 'ArrowDown':
-          video.volume = Math.max(0, video.volume - 0.1);
-          setVolume(video.volume);
-          showNotification(`Ses %${Math.round(video.volume * 100)}`);
-          break;
-        case 'ArrowRight':
-          video.currentTime += 15;
-          showNotification('⏩ 15 saniye ileri');
-          break;
-        case 'ArrowLeft':
-          video.currentTime -= 15;
-          showNotification('⏪ 15 saniye geri');
-          break;
-        case ' ':
-        case 'Enter':
-          video.paused ? video.play() : video.pause();
-          showNotification(video.paused ? '⏸️ Duraklat' : '▶️ Oynat');
-          break;
-        case 't':
-          toggleFit();
-          break;
-      }
-    };
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
+    const tracks = video.textTracks;
+    for (let i = 0; i < tracks.length; i++) {
+      tracks[i].mode = 'disabled';
+    }
 
-  useEffect(() => {
-    let frame;
-    const pollGamepad = () => {
-      const gp = navigator.getGamepads?.()[0];
-      if (gp) {
-        const pressed = (i) => gp.buttons[i]?.pressed;
+    switch (type) {
+      case 'turkishDubbed':
+        newAudioIndex = audioTracks.findIndex(track => track.lang === 'tr');
+        if (newAudioIndex >= 0) {
+          hls.audioTrack = newAudioIndex;
+          setSelectedAudio(newAudioIndex);
+        } else {
+          console.warn('Türkçe ses parçası bulunamadı');
+          showNotification('Türkçe ses parçası mevcut değil');
+        }
+        hls.subtitleTrack = -1;
+        setSelectedSubtitle(-1);
+        setSelectedButton('turkishDubbed');
+        showNotification('Türkçe Dublaj');
+        break;
+      case 'turkishSubtitles':
+        newAudioIndex = audioTracks.findIndex(track => track.lang === 'en');
+        newSubtitleIndex = subtitleTracks.findIndex(track => track.lang === 'tr');
+        if (newAudioIndex >= 0) {
+          hls.audioTrack = newAudioIndex;
+          setSelectedAudio(newAudioIndex);
+        } else {
+          console.warn('İngilizce ses parçası bulunamadı');
+          showNotification('İngilizce ses parçası mevcut değil');
+        }
+        if (newSubtitleIndex >= 0) {
+          hls.subtitleTrack = newSubtitleIndex;
+          setSelectedSubtitle(newSubtitleIndex);
+          if (video.textTracks[newSubtitleIndex]) {
+            video.textTracks[newSubtitleIndex].mode = 'showing';
+          }
+        } else {
+          console.warn('Türkçe altyazı bulunamadı');
+          showNotification('Türkçe altyazı mevcut değil');
+        }
+        setSelectedButton('turkishSubtitles');
+        showNotification('Türkçe Altyazı');
+        break;
+      case 'original':
+        newAudioIndex = audioTracks.findIndex(track => track.lang === 'en');
+        if (newAudioIndex >= 0) {
+          hls.audioTrack = newAudioIndex;
+          setSelectedAudio(newAudioIndex);
+        } else {
+          console.warn('İngilizce ses parçası bulunamadı');
+          showNotification('İngilizce ses parçası mevcut değil');
+        }
+        hls.subtitleTrack = -1;
+        setSelectedSubtitle(-1);
+        setSelectedButton('original');
+        showNotification('Orijinal');
+        break;
+      default:
+        break;
+    }
+  };
 
-        if (pressed(0) && !buttonStates.current[0]) {
-          const video = videoRef.current;
-          video.paused ? video.play() : video.pause();
-          showNotification(video.paused ? '⏸️ Duraklat' : '▶️ Oynat');
-          buttonStates.current[0] = true;
-        } else if (!pressed(0)) buttonStates.current[0] = false;
+  const handleAudioChange = (index) => {
+    const hls = hlsRef.current;
+    const video = videoRef.current;
+    if (!hls || !video) return;
 
-        if (pressed(1) && !buttonStates.current[1]) {
-          toggleFit();
-          buttonStates.current[1] = true;
-        } else if (!pressed(1)) buttonStates.current[1] = false;
+    const newAudioIndex = parseInt(index);
+    hls.audioTrack = newAudioIndex;
+    setSelectedAudio(newAudioIndex);
+    const audioName = audioTracks[newAudioIndex]?.lang ? LANG_MAP[audioTracks[newAudioIndex].lang] || audioTracks[newAudioIndex].lang : 'Bilinmeyen';
+    setSelectedButton(null);
+    showNotification(`Ses: ${audioName}`);
+    setShowAudioOptions(false);
+  };
 
-        if (pressed(15) && !buttonStates.current[15]) {
-          videoRef.current.currentTime += 10;
-          showNotification('⏩ Gamepad sağ');
-          buttonStates.current[15] = true;
-        } else if (!pressed(15)) buttonStates.current[15] = false;
+  const handleSubtitleChange = (index) => {
+    const hls = hlsRef.current;
+    const video = videoRef.current;
+    if (!hls || !video) return;
 
-        if (pressed(14) && !buttonStates.current[14]) {
-          videoRef.current.currentTime -= 10;
-          showNotification('⏪ Gamepad sol');
-          buttonStates.current[14] = true;
-        } else if (!pressed(14)) buttonStates.current[14] = false;
-      }
-      frame = requestAnimationFrame(pollGamepad);
-    };
-    frame = requestAnimationFrame(pollGamepad);
-    return () => cancelAnimationFrame(frame);
-  }, []);
+    const newSubtitleIndex = parseInt(index);
+    const tracks = video.textTracks;
+    for (let i = 0; i < tracks.length; i++) {
+      tracks[i].mode = 'disabled';
+    }
+
+    hls.subtitleTrack = newSubtitleIndex;
+    setSelectedSubtitle(newSubtitleIndex);
+    if (newSubtitleIndex >= 0 && video.textTracks[newSubtitleIndex]) {
+      video.textTracks[newSubtitleIndex].mode = 'showing';
+    }
+    const subtitleName = newSubtitleIndex === -1 ? 'Kapalı' : (subtitleTracks[newSubtitleIndex]?.lang ? LANG_MAP[subtitleTracks[newSubtitleIndex].lang] || subtitleTracks[newSubtitleIndex].lang : 'Bilinmeyen');
+    setSelectedButton(null);
+    showNotification(`Altyazı: ${subtitleName}`);
+    setShowSubtitleOptions(false);
+  };
+
+  const handleQualityChange = (level) => {
+    const hls = hlsRef.current;
+    if (!hls) return;
+
+    const levelIndex = parseInt(level);
+    hls.currentLevel = levelIndex;
+    setSelectedQuality(levelIndex);
+    const qualityName = levelIndex === -1 ? 'Otomatik' : `${qualityLevels[levelIndex]?.height || 'Bilinmeyen'}p`;
+    showNotification(`Kalite: ${qualityName}`);
+    setShowQualityOptions(false);
+  };
+
+  const showNotification = (msg) => {
+    setNotification(msg);
+    setNotificationVisible(true);
+    setTimeout(() => setNotificationVisible(false), 2000);
+  };
 
   const toggleFit = () => {
     setIsFit(prev => {
@@ -192,10 +271,45 @@ export default function AdvancedHlsPlayer({ url }) {
     });
   };
 
-  const showNotification = (msg) => {
-    setNotification(msg);
-    setNotificationVisible(true);
-    setTimeout(() => setNotificationVisible(false), 2000);
+  const togglePlayPause = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play();
+      showNotification('▶ Oynat');
+    } else {
+      video.pause();
+      showNotification('⏸ Duraklat');
+    }
+  };
+
+  const seekForward = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const newTime = Math.min(video.currentTime + 30, video.duration || Infinity);
+    video.currentTime = newTime;
+    setCurrentTime(newTime);
+    setProgress((newTime / video.duration) * 100 || 0);
+    showNotification('⏩ 30s ileri');
+  };
+
+  const seekBackward = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const newTime = Math.max(video.currentTime - 30, 0);
+    video.currentTime = newTime;
+    setCurrentTime(newTime);
+    setProgress((newTime / video.duration) * 100 || 0);
+    showNotification('⏪ 30s geri');
+  };
+
+  const seekTo = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    const newTime = ratio * duration;
+    if (!isNaN(newTime) && videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
   };
 
   const showControls = () => {
@@ -207,61 +321,62 @@ export default function AdvancedHlsPlayer({ url }) {
       setProgressBarVisible(false);
     }, 3000));
   };
+  useEffect(() => {
+  const handleKeyDown = (e) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    switch (e.key.toLowerCase()) {
+      case ' ':
+        e.preventDefault();
+        togglePlayPause();
+        break;
+      case 'arrowright':
+        seekForward();
+        break;
+      case 'arrowleft':
+        seekBackward();
+        break;
+      case 'arrowup':
+        e.preventDefault();
+        video.volume = Math.min(video.volume + 0.1, 1);
+        showNotification(`🔊 Ses: %${Math.round(video.volume * 100)}`);
+        break;
+      case 'arrowdown':
+        e.preventDefault();
+        video.volume = Math.max(video.volume - 0.1, 0);
+        showNotification(`🔉 Ses: %${Math.round(video.volume * 100)}`);
+        break;
+      case 'm':
+        e.preventDefault();
+        video.muted = !video.muted;
+        showNotification(video.muted ? '🔇 Sessiz' : `🔊 Ses: %${Math.round(video.volume * 100)}`);
+        break;
+      case 'escape':
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+          showNotification('⛔ Tam ekrandan çıkıldı');
+        }
+        break;
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, []);
 
   useEffect(() => {
     const onMouseMove = () => showControls();
     const onTouchStart = () => showControls();
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('touchstart', onTouchStart);
+    window.addEventListener('keydown', showControls);
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('keydown', showControls);
     };
   }, [notificationTimer]);
-  const seekTo = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = (e.clientX - rect.left) / rect.width;
-    const newTime = ratio * duration;
-    if (!isNaN(newTime) && videoRef.current) {
-      videoRef.current.currentTime = newTime;
-    }
-  };
-
-  const handleVolumeToggle = () => {
-    const newVolume = volume === 0 ? 1 : 0;
-    setVolume(newVolume);
-    if (videoRef.current) videoRef.current.volume = newVolume;
-    showNotification(newVolume === 0 ? '🔇 Ses Kapalı' : `🔊 Ses %${Math.round(newVolume * 100)}`);
-  };
-
-  const handleQualityChange = (e) => {
-    const level = parseInt(e.target.value, 10);
-    if (hlsRef.current) {
-      if (level === -1) {
-        hlsRef.current.autoLevelEnabled = true;
-      } else {
-        hlsRef.current.autoLevelEnabled = false;
-        hlsRef.current.currentLevel = level;
-      }
-    }
-  };
-
-  const buttonStyle = {
-    background: 'rgba(0, 0, 0, 0.5)',
-    border: 'none',
-    borderRadius: '50%',
-    padding: '10px',
-    cursor: 'pointer',
-  };
-
-  const selectStyle = {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '50px',
-    padding: '6px 10px',
-    cursor: 'pointer',
-  };
 
   return (
     <div id="player-container" style={{
@@ -284,19 +399,190 @@ export default function AdvancedHlsPlayer({ url }) {
           willChange: 'transform'
         }}
       />
-      <style>{`
-        video::cue {
-          background: rgba(0, 0, 0, 0.35);
-          color: white;
-          font-size: clamp(22px, 3vw, 36px); /* ✅ Büyütülmüş ve responsive altyazı */
-          text-shadow: 1px 1px 3px black;
-          line-height: 1.5;
-          font-family: 'Segoe UI', sans-serif;
-        }
-        video:focus {
-          outline: none;
-        }
-      `}</style>
+      {/* Dil Seçim Butonları */}
+      <div style={{
+        position: 'absolute',
+        bottom: '120px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        gap: '10px',
+        zIndex: 1000,
+        opacity: controlsVisible ? 1 : 0,
+        transition: 'opacity 0.5s ease',
+        pointerEvents: controlsVisible ? 'auto' : 'none',
+      }}>
+        <button
+          onClick={() => handleLanguageChange('turkishDubbed')}
+          onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('turkishDubbed')}
+          tabIndex={0}
+          style={{
+            background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+            color: '#fff',
+            padding: '10px',
+            borderRadius: '5px',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          Türkçe Dublaj
+        </button>
+        <button
+          onClick={() => handleLanguageChange('turkishSubtitles')}
+          onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('turkishSubtitles')}
+          tabIndex={0}
+          style={{
+            background: selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+            color: '#fff',
+            padding: '10px',
+            borderRadius: '5px',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          Türkçe Altyazı
+        </button>
+        <button
+          onClick={() => handleLanguageChange('original')}
+          onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('original')}
+          tabIndex={0}
+          style={{
+            background: selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+            color: '#fff',
+            padding: '10px',
+            borderRadius: '5px',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          Orijinal
+        </button>
+      </div>
+
+      {/* Oynatma Kontrol Butonları (Tam Ortada, 30s geri, oynat/duraklat, 30s ileri, 2 kat büyük) */}
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        display: 'flex',
+        gap: '10px',
+        zIndex: 1000,
+        opacity: controlsVisible ? 1 : 0,
+        transition: 'opacity 0.5s ease',
+        pointerEvents: controlsVisible ? 'auto' : 'none',
+      }}>
+        <button
+          onClick={seekBackward}
+          onKeyDown={(e) => e.key === 'Enter' && seekBackward()}
+          tabIndex={0}
+          style={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '20px',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          <span className="material-icons" style={{ color: '#fff', fontSize: '48px' }}>replay_30</span>
+        </button>
+        <button
+          onClick={togglePlayPause}
+          onKeyDown={(e) => e.key === 'Enter' && togglePlayPause()}
+          tabIndex={0}
+          style={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '20px',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          <span className="material-icons" style={{ color: '#fff', fontSize: '48px' }}>
+            {isPlaying ? 'pause' : 'play_arrow'}
+          </span>
+        </button>
+        <button
+          onClick={seekForward}
+          onKeyDown={(e) => e.key === 'Enter' && seekForward()}
+          tabIndex={0}
+          style={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '20px',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          <span className="material-icons" style={{ color: '#fff', fontSize: '48px' }}>forward_30</span>
+        </button>
+      </div>
 
       {/* Bildirim */}
       {notificationVisible && (
@@ -322,7 +608,7 @@ export default function AdvancedHlsPlayer({ url }) {
             position: 'absolute',
             bottom: '100px',
             left: '12px',
-            color: '#fff',
+            color: 'rgb(255, 255, 255)',
             fontSize: '14px',
             background: 'rgba(0,0,0,0.6)',
             padding: '4px 8px',
@@ -337,14 +623,24 @@ export default function AdvancedHlsPlayer({ url }) {
             left: 0,
             width: '100%',
             height: '6px',
-            background: '#111',
+            background: 'rgb(17, 17, 17)',
             cursor: 'pointer',
             zIndex: 99,
           }}>
             <div style={{
+              width: `${bufferedProgress}%`,
+              height: '100%',
+              background: 'rgba(255, 255, 255, 0.3)',
+              position: 'absolute',
+              zIndex: 1,
+              transition: 'width 0.2s ease',
+            }} />
+            <div style={{
               width: `${progress}%`,
               height: '100%',
-              background: 'linear-gradient(to right,rgb(229, 9, 20),rgb(184, 29, 36))',
+              background: 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))',
+              position: 'absolute',
+              zIndex: 2,
               transition: 'width 0.2s ease',
             }} />
           </div>
@@ -364,21 +660,144 @@ export default function AdvancedHlsPlayer({ url }) {
         transition: 'opacity 0.5s ease',
         pointerEvents: controlsVisible ? 'auto' : 'none',
       }}>
-        <button onClick={handleVolumeToggle} style={buttonStyle}>
-          <span className="material-icons" style={{ color: '#fff' }}>
-            {volume === 0 ? 'volume_off' : 'volume_up'}
-          </span>
+        <button
+          onClick={() => setShowAudioOptions(!showAudioOptions)}
+          onKeyDown={(e) => e.key === 'Enter' && setShowAudioOptions(!showAudioOptions)}
+          tabIndex={0}
+          style={{
+            background: selectedAudio >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '10px',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = selectedAudio >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = selectedAudio >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          <span className="material-icons" style={{ color: '#fff' }}>audiotrack</span>
         </button>
+        {showAudioOptions && (
+          <select
+            value={selectedAudio}
+            onChange={(e) => handleAudioChange(e.target.value)}
+            tabIndex={0}
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '50px',
+              padding: '6px 10px',
+              cursor: 'pointer'
+            }}
+          >
+            {audioTracks.map((track, index) => (
+              <option key={index} value={index}>
+                {track.lang ? LANG_MAP[track.lang] || track.lang : `Ses ${index + 1}`}
+              </option>
+            ))}
+          </select>
+        )}
 
-        <button onClick={() => setShowSpeedOptions(!showSpeedOptions)} style={buttonStyle}>
+        <button
+          onClick={() => setShowSubtitleOptions(!showSubtitleOptions)}
+          onKeyDown={(e) => e.key === 'Enter' && setShowSubtitleOptions(!showSubtitleOptions)}
+          tabIndex={0}
+          style={{
+            background: selectedSubtitle >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '10px',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = selectedSubtitle >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = selectedSubtitle >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          <span className="material-icons" style={{ color: '#fff' }}>subtitles</span>
+        </button>
+        {showSubtitleOptions && (
+          <select
+            value={selectedSubtitle}
+            onChange={(e) => handleSubtitleChange(e.target.value)}
+            tabIndex={0}
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '50px',
+              padding: '6px 10px',
+              cursor: 'pointer'
+            }}
+          >
+            <option value={-1}>Kapalı</option>
+            {subtitleTracks.map((track, index) => (
+              <option key={index} value={index}>
+                {track.lang ? LANG_MAP[track.lang] || track.lang : `Altyazı ${index + 1}`}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <button
+          onClick={() => setShowSpeedOptions(!showSpeedOptions)}
+          onKeyDown={(e) => e.key === 'Enter' && setShowSpeedOptions(!showSpeedOptions)}
+          tabIndex={0}
+          style={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '10px',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
           <span className="material-icons" style={{ color: '#fff' }}>speed</span>
         </button>
         {showSpeedOptions && (
-          <select value={playbackRate} onChange={(e) => {
-            const rate = parseFloat(e.target.value);
-            setPlaybackRate(rate);
-            if (videoRef.current) videoRef.current.playbackRate = rate;
-          }} style={selectStyle}>
+          <select
+            value={playbackRate}
+            onChange={(e) => {
+              const rate = parseFloat(e.target.value);
+              setPlaybackRate(rate);
+              if (videoRef.current) videoRef.current.playbackRate = rate;
+            }}
+            tabIndex={0}
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '50px',
+              padding: '6px 10px',
+              cursor: 'pointer'
+            }}
+          >
             <option value={0.25}>0.25x</option>
             <option value={0.50}>0.5x</option>
             <option value={0.75}>0.75x</option>
@@ -389,60 +808,51 @@ export default function AdvancedHlsPlayer({ url }) {
           </select>
         )}
 
-        <button onClick={() => setShowLangOptions(!showLangOptions)} style={buttonStyle}>
-          <span className="material-icons" style={{ color: '#fff' }}>language</span>
-        </button>
-        {showLangOptions && (
-          <select value={selectedAudio} onChange={(e) => {
-            const idx = parseInt(e.target.value, 10);
-            setSelectedAudio(idx);
-            if (hlsRef.current) hlsRef.current.audioTrack = idx;
-          }} style={selectStyle}>
-            {audioTracks.map((track, idx) => (
-              <option key={idx} value={idx}>
-                {LANG_MAP[track.lang] || `Dil ${idx + 1}`}
-              </option>
-            ))}
-          </select>
-        )}
-
-        <button onClick={() => setShowSubtitleOptions(!showSubtitleOptions)} style={buttonStyle}>
-          <span className="material-icons" style={{ color: '#fff' }}>subtitles</span>
-        </button>
-        {showSubtitleOptions && (
-          <select value={selectedSubtitle} onChange={(e) => {
-            const idx = parseInt(e.target.value, 10);
-            setSelectedSubtitle(idx);
-            if (hlsRef.current) hlsRef.current.subtitleTrack = idx;
-            const tracks = videoRef.current?.textTracks;
-            if (tracks && tracks[idx]) tracks[idx].mode = 'showing';
-          }} style={selectStyle}>
-            <option value={-1}>Altyazı Yok</option>
-            {subtitleTracks.map((track, idx) => (
-              <option key={idx} value={idx}>
-                {LANG_MAP[track.lang] || `Dil ${idx + 1}`}
-              </option>
-            ))}
-          </select>
-        )}
-
-        <button onClick={() => setShowQualityOptions(!showQualityOptions)} style={buttonStyle}>
-          <span className="material-icons" style={{ color: '#fff' }}>hd</span>
+        <button
+          onClick={() => setShowQualityOptions(!showQualityOptions)}
+          onKeyDown={(e) => e.key === 'Enter' && setShowQualityOptions(!showQualityOptions)}
+          tabIndex={0}
+          style={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '10px',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          <span className="material-icons" style={{ color: '#fff' }}>high_quality</span>
         </button>
         {showQualityOptions && (
-          <select onChange={handleQualityChange} style={selectStyle}>
+          <select
+            value={selectedQuality}
+            onChange={(e) => handleQualityChange(e.target.value)}
+            tabIndex={0}
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '50px',
+              padding: '6px 10px',
+              cursor: 'pointer'
+            }}
+          >
             <option value={-1}>Otomatik</option>
-            {qualityLevels.map((level, idx) => (
-              <option key={idx} value={idx}>
-                {level.height}p
-              </option>
+            {qualityLevels.map((level, index) => (
+              <option key={index} value={index}>{level.height ? `${level.height}p` : `Seviye ${index + 1}`}</option>
             ))}
           </select>
         )}
-
-        <button onClick={toggleFit} style={buttonStyle}>
-          <span className="material-icons" style={{ color: '#fff' }}>fit_screen</span>
-        </button>
       </div>
     </div>
   );
