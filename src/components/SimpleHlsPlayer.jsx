@@ -15,7 +15,7 @@ function formatTime(seconds) {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s}`;
 }
 
-export default function SimpleHlsPlayer({ url }) {
+export default function SimpleHlsPlayer({ url, title }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const buttonStates = useRef({});
@@ -27,7 +27,7 @@ export default function SimpleHlsPlayer({ url }) {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFit, setIsFit] = useState('contain');
   const [isPlaying, setIsPlaying] = useState(true);
-
+  const [isLive, setIsLive] = useState(false);
   const [selectedAudio, setSelectedAudio] = useState(0);
   const [selectedSubtitle, setSelectedSubtitle] = useState(-1);
   const [selectedButton, setSelectedButton] = useState('turkishDubbed');
@@ -35,7 +35,6 @@ export default function SimpleHlsPlayer({ url }) {
   const [audioTracks, setAudioTracks] = useState([]);
   const [subtitleTracks, setSubtitleTracks] = useState([]);
   const [qualityLevels, setQualityLevels] = useState([]);
-
   const [showSpeedOptions, setShowSpeedOptions] = useState(false);
   const [showAudioOptions, setShowAudioOptions] = useState(false);
   const [showSubtitleOptions, setShowSubtitleOptions] = useState(false);
@@ -68,6 +67,10 @@ export default function SimpleHlsPlayer({ url }) {
     hls.loadSource(url);
     hls.attachMedia(video);
 
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      setIsLive(hls.levels[0]?.details?.live || isNaN(video.duration) || video.duration === Infinity);
+    });
+
     hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_, data) => {
       console.log('Ses parçaları:', data.audioTracks);
       setAudioTracks(data.audioTracks);
@@ -84,6 +87,10 @@ export default function SimpleHlsPlayer({ url }) {
         if (fallbackIdx >= 0) {
           hls.audioTrack = fallbackIdx;
           setSelectedAudio(fallbackIdx);
+          setSelectedButton('original');
+        } else if (data.audioTracks.length > 0) {
+          hls.audioTrack = 0;
+          setSelectedAudio(0);
           setSelectedButton('original');
         }
       }
@@ -125,6 +132,7 @@ export default function SimpleHlsPlayer({ url }) {
         setBufferedProgress((bufferedEnd / video.duration) * 100 || 0);
       }
       setIsPlaying(!video.paused);
+      setIsLive(isNaN(video.duration) || video.duration === Infinity);
     };
 
     video.addEventListener('timeupdate', updateTime);
@@ -195,6 +203,9 @@ export default function SimpleHlsPlayer({ url }) {
         if (newAudioIndex >= 0) {
           hls.audioTrack = newAudioIndex;
           setSelectedAudio(newAudioIndex);
+        } else if (audioTracks.length > 0) {
+          hls.audioTrack = 0;
+          setSelectedAudio(0);
         } else {
           console.warn('İngilizce ses parçası bulunamadı');
           showNotification('İngilizce ses parçası mevcut değil');
@@ -284,6 +295,10 @@ export default function SimpleHlsPlayer({ url }) {
   };
 
   const seekForward = () => {
+    if (isLive) {
+      showNotification('Canlı yayında ileri sarma yapılamaz');
+      return;
+    }
     const video = videoRef.current;
     if (!video) return;
     const newTime = Math.min(video.currentTime + 30, video.duration || Infinity);
@@ -294,6 +309,10 @@ export default function SimpleHlsPlayer({ url }) {
   };
 
   const seekBackward = () => {
+    if (isLive) {
+      showNotification('Canlı yayında geri sarma yapılamaz');
+      return;
+    }
     const video = videoRef.current;
     if (!video) return;
     const newTime = Math.max(video.currentTime - 30, 0);
@@ -304,6 +323,10 @@ export default function SimpleHlsPlayer({ url }) {
   };
 
   const seekTo = (e) => {
+    if (isLive) {
+      showNotification('Canlı yayında zaman çubuğu kullanılamaz');
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = (e.clientX - rect.left) / rect.width;
     const newTime = ratio * duration;
@@ -321,49 +344,50 @@ export default function SimpleHlsPlayer({ url }) {
       setProgressBarVisible(false);
     }, 3000));
   };
+
   useEffect(() => {
-  const handleKeyDown = (e) => {
-    const video = videoRef.current;
-    if (!video) return;
+    const handleKeyDown = (e) => {
+      const video = videoRef.current;
+      if (!video) return;
 
-    switch (e.key.toLowerCase()) {
-      case ' ':
-        e.preventDefault();
-        togglePlayPause();
-        break;
-      case 'arrowright':
-        seekForward();
-        break;
-      case 'arrowleft':
-        seekBackward();
-        break;
-      case 'arrowup':
-        e.preventDefault();
-        video.volume = Math.min(video.volume + 0.1, 1);
-        showNotification(`🔊 Ses: %${Math.round(video.volume * 100)}`);
-        break;
-      case 'arrowdown':
-        e.preventDefault();
-        video.volume = Math.max(video.volume - 0.1, 0);
-        showNotification(`🔉 Ses: %${Math.round(video.volume * 100)}`);
-        break;
-      case 'm':
-        e.preventDefault();
-        video.muted = !video.muted;
-        showNotification(video.muted ? '🔇 Sessiz' : `🔊 Ses: %${Math.round(video.volume * 100)}`);
-        break;
-      case 'escape':
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-          showNotification('⛔ Tam ekrandan çıkıldı');
-        }
-        break;
-    }
-  };
+      switch (e.key.toLowerCase()) {
+        case ' ':
+          e.preventDefault();
+          togglePlayPause();
+          break;
+        case 'arrowright':
+          seekForward();
+          break;
+        case 'arrowleft':
+          seekBackward();
+          break;
+        case 'arrowup':
+          e.preventDefault();
+          video.volume = Math.min(video.volume + 0.1, 1);
+          showNotification(`🔊 Ses: %${Math.round(video.volume * 100)}`);
+          break;
+        case 'arrowdown':
+          e.preventDefault();
+          video.volume = Math.max(video.volume - 0.1, 0);
+          showNotification(`🔉 Ses: %${Math.round(video.volume * 100)}`);
+          break;
+        case 'm':
+          e.preventDefault();
+          video.muted = !video.muted;
+          showNotification(video.muted ? '🔇 Sessiz' : `🔊 Ses: %${Math.round(video.volume * 100)}`);
+          break;
+        case 'escape':
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+            showNotification('⛔ Tam ekrandan çıkıldı');
+          }
+          break;
+      }
+    };
 
-  window.addEventListener('keydown', handleKeyDown);
-  return () => window.removeEventListener('keydown', handleKeyDown);
-}, []);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const onMouseMove = () => showControls();
@@ -377,6 +401,11 @@ export default function SimpleHlsPlayer({ url }) {
       window.removeEventListener('keydown', showControls);
     };
   }, [notificationTimer]);
+
+  // Türkçe altyazı var mı kontrolü
+  const hasTurkishSubtitles = subtitleTracks.some(track => track.lang === 'tr');
+  // Ses parçası sayısı kontrolü
+  const hasMultipleAudioTracks = audioTracks.length > 1;
 
   return (
     <div id="player-container" style={{
@@ -399,100 +428,124 @@ export default function SimpleHlsPlayer({ url }) {
           willChange: 'transform'
         }}
       />
+      {/* Video İsmi */}
+      {title && controlsVisible && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '20px',
+          background: 'rgba(0, 0, 0, 0.7)',
+          color: '#fff',
+          padding: '8px 16px',
+          borderRadius: '6px',
+          fontWeight: 'bold',
+          zIndex: 1000,
+          opacity: controlsVisible ? 1 : 0,
+          transition: 'opacity 0.5s ease',
+        }}>
+          {title}
+        </div>
+      )}
       {/* Dil Seçim Butonları */}
-      <div style={{
-        position: 'absolute',
-        bottom: '120px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        display: 'flex',
-        gap: '10px',
-        zIndex: 1000,
-        opacity: controlsVisible ? 1 : 0,
-        transition: 'opacity 0.5s ease',
-        pointerEvents: controlsVisible ? 'auto' : 'none',
-      }}>
-        <button
-          onClick={() => handleLanguageChange('turkishDubbed')}
-          onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('turkishDubbed')}
-          tabIndex={0}
-          style={{
-            background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
-            color: '#fff',
-            padding: '10px',
-            borderRadius: '5px',
-            border: 'none',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease, transform 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        >
-          Türkçe Dublaj
-        </button>
-        <button
-          onClick={() => handleLanguageChange('turkishSubtitles')}
-          onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('turkishSubtitles')}
-          tabIndex={0}
-          style={{
-            background: selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
-            color: '#fff',
-            padding: '10px',
-            borderRadius: '5px',
-            border: 'none',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease, transform 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        >
-          Türkçe Altyazı
-        </button>
-        <button
-          onClick={() => handleLanguageChange('original')}
-          onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('original')}
-          tabIndex={0}
-          style={{
-            background: selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
-            color: '#fff',
-            padding: '10px',
-            borderRadius: '5px',
-            border: 'none',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease, transform 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        >
-          Orijinal
-        </button>
-      </div>
+      {(hasMultipleAudioTracks || hasTurkishSubtitles) && (
+        <div style={{
+          position: 'absolute',
+          bottom: '120px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          gap: '10px',
+          zIndex: 1000,
+          opacity: controlsVisible ? 1 : 0,
+          transition: 'opacity 0.5s ease',
+          pointerEvents: controlsVisible ? 'auto' : 'none',
+        }}>
+          {hasMultipleAudioTracks && (
+            <button
+              onClick={() => handleLanguageChange('turkishDubbed')}
+              onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('turkishDubbed')}
+              tabIndex={0}
+              style={{
+                background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+                color: '#fff',
+                padding: '10px',
+                borderRadius: '5px',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background 0.2s ease, transform 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+                e.currentTarget.style.transform = 'scale(1.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+            >
+              Türkçe Dublaj
+            </button>
+          )}
+          {hasTurkishSubtitles && (
+            <button
+              onClick={() => handleLanguageChange('turkishSubtitles')}
+              onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('turkishSubtitles')}
+              tabIndex={0}
+              style={{
+                background: selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+                color: '#fff',
+                padding: '10px',
+                borderRadius: '5px',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background 0.2s ease, transform 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+                e.currentTarget.style.transform = 'scale(1.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+            >
+              Türkçe Altyazı
+            </button>
+          )}
+          <button
+            onClick={() => handleLanguageChange('original')}
+            onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('original')}
+            tabIndex={0}
+            style={{
+              background: selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+              color: '#fff',
+              padding: '10px',
+              borderRadius: '5px',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'background 0.2s ease, transform 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+              e.currentTarget.style.transform = 'scale(1.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+          >
+            Orijinal
+          </button>
+        </div>
+      )}
 
-      {/* Oynatma Kontrol Butonları (Tam Ortada, 30s geri, oynat/duraklat, 30s ileri, 2 kat büyük) */}
+      {/* Oynatma Kontrol Butonları */}
       <div style={{
         position: 'absolute',
         top: '50%',
@@ -514,19 +567,25 @@ export default function SimpleHlsPlayer({ url }) {
             border: 'none',
             borderRadius: '50%',
             padding: '20px',
-            cursor: 'pointer',
+            cursor: isLive ? 'not-allowed' : 'pointer',
             transition: 'background 0.2s ease, transform 0.2s ease',
+            opacity: isLive ? 0.5 : 1,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
+            if (!isLive) {
+              e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
+              e.currentTarget.style.transform = 'scale(1.1)';
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
+            if (!isLive) {
+              e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }
           }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+          onMouseDown={(e) => !isLive && (e.currentTarget.style.transform = 'scale(0.9)')}
+          onMouseUp={(e) => !isLive && (e.currentTarget.style.transform = 'scale(1.1)')}
+          disabled={isLive}
         >
           <span className="material-icons" style={{ color: '#fff', fontSize: '48px' }}>replay_30</span>
         </button>
@@ -566,19 +625,25 @@ export default function SimpleHlsPlayer({ url }) {
             border: 'none',
             borderRadius: '50%',
             padding: '20px',
-            cursor: 'pointer',
+            cursor: isLive ? 'not-allowed' : 'pointer',
             transition: 'background 0.2s ease, transform 0.2s ease',
+            opacity: isLive ? 0.5 : 1,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
+            if (!isLive) {
+              e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
+              e.currentTarget.style.transform = 'scale(1.1)';
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
+            if (!isLive) {
+              e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }
           }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+          onMouseDown={(e) => !isLive && (e.currentTarget.style.transform = 'scale(0.9)')}
+          onMouseUp={(e) => !isLive && (e.currentTarget.style.transform = 'scale(1.1)')}
+          disabled={isLive}
         >
           <span className="material-icons" style={{ color: '#fff', fontSize: '48px' }}>forward_30</span>
         </button>
@@ -602,7 +667,7 @@ export default function SimpleHlsPlayer({ url }) {
       )}
 
       {/* Süre ve progress bar */}
-      {progressBarVisible && (
+      {progressBarVisible && !isLive && (
         <>
           <div style={{
             position: 'absolute',

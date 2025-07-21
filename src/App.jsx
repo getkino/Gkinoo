@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { parseM3U } from './utils/parseM3U';
 import PlatformSidebar from './components/PlatformSidebar';
 import ChannelGrid from './components/ChannelGrid';
-import SimpleHlsPlayer from './components/SimpleHlsPlayer'; // ShakaPlayer or RedirectHlsPlayer based on your preference
+import SimpleHlsPlayer from './components/SimpleHlsPlayer';
 import 'video.js/dist/video-js.css';
-
 
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "dmax" },
@@ -238,7 +237,7 @@ function App() {
           )}
 
           {isWatching && selectedChannel ? (
-            <SimpleHlsPlayer url={selectedChannel.url} />
+            <SimpleHlsPlayer url={selectedChannel.url} title={selectedChannel.name} />
           ) : selectedGroup ? (
             <>
               <div style={{ padding: '20px' }}>

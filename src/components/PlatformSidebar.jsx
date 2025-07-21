@@ -9,7 +9,7 @@ const platforms = [
   { name: "POWER DİZİ", logo: "/images/dizi.jpg" },
   { name: "KABLO TV", logo: "/images/kablotv.jpg" },
   { name: "YEDEK", logo: "/images/kablotv.jpg" },
-  { name: "CARTOON NETWORK", logo: "/images/cartoon.jpg" }
+  { name: "YEDEK FİLMLER", logo: "/images/cartoon.jpg" }
 ];
 
 export default function PlatformSidebar({ selected, onSelect }) {
