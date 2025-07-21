@@ -35,9 +35,10 @@ export default function PlatformSidebar({ selected, onSelect }) {
             marginBottom: '10px',
             cursor: 'pointer',
             borderRadius: '8px',
-            background: selected === platform.name ? '#fff' : 'transparent', // Seçili olana beyaz
-            border: selected === platform.name ? '2.5px solid #4fc3f7' : '2px solid #444',
-            boxShadow: selected === platform.name ? '0 0 16px #4fc3f7' : 'none',
+            // Seçili olana KIRMIZI stiller:
+            background: selected === platform.name ? '#FF0000' : 'transparent', // Seçili olana kırmızı arka plan
+            border: selected === platform.name ? '2.5px solid #FF0000' : '2px solid #444', // Seçili olana kırmızı kenarlık
+            boxShadow: selected === platform.name ? '0 0 16px #FF0000' : 'none', // Seçili olana kırmızı gölge
             color: selected === platform.name ? '#222' : 'white', // Seçili olunca koyu yazı
             fontWeight: selected === platform.name ? 'bold' : 'normal',
             transition: 'box-shadow 0.2s, border 0.2s, background 0.2s, color 0.2s, font-weight 0.2s'

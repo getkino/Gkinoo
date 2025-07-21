@@ -103,14 +103,12 @@ function App() {
           ref={sidebarRef}
           tabIndex={0}
           onKeyDown={e => {
-            // Sadece input odakta değilken çalışsın
             if (
               document.activeElement &&
               (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
             ) return;
 
-            // Satır/sütun mantığı ile yön tuşları
-            const columns = 1; // Sidebar tek sütun
+            const columns = 1;
             if (e.key === 'ArrowDown') {
               setSidebarFocusIndex(i => Math.min(i + columns, SOURCES.length - 1));
               e.preventDefault();
@@ -120,11 +118,9 @@ function App() {
               e.preventDefault();
             }
             if (e.key === 'ArrowRight') {
-              // Sağ tuş ile ana grid'e geçiş yapılabilir, burada eklenebilir
               e.preventDefault();
             }
             if (e.key === 'ArrowLeft') {
-              // Sol tuş ile başka bir aksiyon yapılabilir, burada eklenebilir
               e.preventDefault();
             }
             if (e.key === 'Enter') {
@@ -141,7 +137,7 @@ function App() {
             minHeight: window.innerWidth < 900 ? 'unset' : '100vh',
             maxHeight: window.innerWidth < 900 ? 'unset' : '100vh',
             width: window.innerWidth < 900 ? '100%' : undefined,
-            background: window.innerWidth < 900 ? 'rgba(13,13,13,0.5)' : 'rgba(13,13,13,0.5)', // transparan arkaplan
+            background: window.innerWidth < 900 ? 'rgba(13,13,13,0.5)' : 'rgba(13,13,13,0.5)',
             paddingBottom: window.innerWidth < 900 ? 0 : undefined,
             minWidth: window.innerWidth < 900 ? 'unset' : 220,
             backdropFilter: 'blur(6px)'
@@ -152,14 +148,13 @@ function App() {
             alt="Logo"
             style={{
               display: 'block',
-              margin: '24px auto auto', // üstten ve alttan boşluk azaltıldı
+              margin: '24px auto auto',
               width: '180px',
               height: 'auto',
               background: 'none',
               backgroundColor: 'transparent'
             }}
           />
-          {/* Mobilde açılır menü */}
           {typeof window !== "undefined" && window.innerWidth < 900 ? (
             <select
               value={selectedPlatform || SOURCES[sidebarFocusIndex]?.platform}
@@ -221,7 +216,7 @@ function App() {
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Program ara..."
+                placeholder="Ara..."
                 style={{
                   width: '100%',
                   padding: '10px',
@@ -245,7 +240,7 @@ function App() {
                   type="text"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Bölüm ara..."
+                  placeholder="Ara..."
                   style={{
                     width: '100%',
                     padding: '10px',
@@ -272,6 +267,13 @@ function App() {
                 setFocusedIndex={setFocusedIndex}
                 imageMap={imageMap}
                 isProgramPage={false}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '20px',
+                  padding: '20px',
+                  justifyItems: 'center',
+                }}
               />
             </>
           ) : (
@@ -289,6 +291,13 @@ function App() {
               setFocusedIndex={setFocusedIndex}
               imageMap={imageMap}
               isProgramPage={true}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '20px',
+                padding: '20px',
+                justifyItems: 'center',
+              }}
             />
           )}
         </div>
