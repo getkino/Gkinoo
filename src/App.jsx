@@ -8,13 +8,13 @@ import 'video.js/dist/video-js.css';
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "dmax" },
   { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "tlc" },
-  { name: "SPOR", url: "https://m3u.ch/YNZ63gqZ.m3u ", platform: "spor" },
+  { name: "SPOR", url: "https://m3u.ch/YNZ63gqZ.m3u", platform: "spor" },
   { name: "BEİN ÖZET", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/beinozet.m3u", platform: "beinozet" },
   { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_movies.m3u", platform: "sinema" },
   { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u", platform: "dizi" },
   { name: "KABLO TV", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/denen/kablo.m3u", platform: "kablotv" },
   { name: "YEDEK", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/serifilm.m3u", platform: "yedek" },
-  { name: "CARTOON NETWORK", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u", platform: "cartoon" } 
+  { name: "CARTOON NETWORK", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u", platform: "cartoon" }
 ];
 
 const imageMap = {
@@ -39,7 +39,39 @@ function App() {
   const [isWatching, setIsWatching] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sidebarFocusIndex, setSidebarFocusIndex] = useState(0);
+  const [customSources, setCustomSources] = useState([]);
+  const [isGridFocused, setIsGridFocused] = useState(false);
   const sidebarRef = useRef(null);
+  const gridRef = useRef(null);
+
+  const handleFileUpload = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const platform = `custom-${Date.now()}`;
+      const newSource = {
+        name: file.name.replace('.m3u', ''),
+        url: URL.createObjectURL(new Blob([text], { type: 'text/plain' })),
+        platform
+      };
+      setCustomSources([newSource]);
+      setSelectedSource(newSource);
+      setSidebarFocusIndex(SOURCES.length);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleUrlSubmit = (url) => {
+    const platform = `custom-${Date.now()}`;
+    const newSource = {
+      name: `Özel Liste`,
+      url,
+      platform
+    };
+    setCustomSources([newSource]);
+    setSelectedSource(newSource);
+    setSidebarFocusIndex(SOURCES.length);
+  };
 
   useEffect(() => {
     fetch(selectedSource.url)
@@ -56,30 +88,87 @@ function App() {
         setFocusedIndex(0);
         setIsWatching(false);
         setSelectedPlatform(platform);
+      })
+      .catch(err => {
+        console.error('M3U yükleme hatası:', err);
+        alert('M3U dosyası yüklenemedi. Lütfen geçerli bir dosya veya URL seçin.');
       });
   }, [selectedSource]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (isWatching) {
-          setIsWatching(false);
-        } else if (selectedGroup) {
-          setSelectedGroup(null);
+      // Input veya textarea odaklanmışsa klavye olaylarını atla
+      if (
+        document.activeElement &&
+        (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
+      ) return;
+
+      // Oynatma ekranındaysa veya grid odaklanmışsa sidebar olaylarını atla
+      if (isWatching || isGridFocused) {
+        if (e.key === 'Escape') {
+          if (isWatching) {
+            setIsWatching(false);
+            setIsGridFocused(true);
+            if (gridRef.current) gridRef.current.focus();
+          } else if (selectedGroup) {
+            setSelectedGroup(null);
+            setIsGridFocused(true);
+            if (gridRef.current) gridRef.current.focus();
+          }
         }
+        return;
+      }
+
+      // Sidebar navigasyonu
+      const columns = 1;
+      const totalSources = SOURCES.length + customSources.length;
+      if (e.key === 'ArrowDown') {
+        setSidebarFocusIndex(i => Math.min(i + columns, totalSources - 1));
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowUp') {
+        setSidebarFocusIndex(i => Math.max(i - columns, 0));
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowRight') {
+        // Grid'e odaklan
+        setIsGridFocused(true);
+        if (gridRef.current) {
+          gridRef.current.focus();
+        }
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowLeft') {
+        // Sidebar'a odaklan
+        setIsGridFocused(false);
+        if (sidebarRef.current) {
+          sidebarRef.current.focus();
+        }
+        e.preventDefault();
+      }
+      if (e.key === 'Enter' || e.key === 'OK') {
+        const source = [...SOURCES, ...customSources][sidebarFocusIndex];
+        if (source) {
+          setSelectedSource(source);
+          setSelectedPlatform(source.platform);
+          setIsGridFocused(true);
+          if (gridRef.current) gridRef.current.focus();
+        }
+        e.preventDefault();
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isWatching, selectedGroup]);
+  }, [isWatching, isGridFocused, selectedGroup, sidebarFocusIndex, customSources]);
 
   useEffect(() => {
-    if (!isWatching && sidebarRef.current) {
+    if (!isWatching && !isGridFocused && sidebarRef.current) {
       sidebarRef.current.focus();
     }
-  }, [isWatching, selectedPlatform]);
+  }, [isWatching, selectedPlatform, isGridFocused]);
 
-  const platformList = SOURCES.map(s => s.platform);
+  const platformList = [...SOURCES, ...customSources].map(s => s.platform);
 
   const allPrograms = Object.keys(groupedChannels);
   const filteredPrograms = allPrograms.filter(name => {
@@ -90,6 +179,13 @@ function App() {
   });
 
   const flatEpisodes = selectedGroup ? groupedChannels[selectedGroup] : [];
+
+  const getGroupChannels = () => {
+    if (selectedChannel && selectedGroup) {
+      return groupedChannels[selectedGroup] || [];
+    }
+    return [];
+  };
 
   return (
     <div style={{
@@ -102,35 +198,7 @@ function App() {
         <div
           ref={sidebarRef}
           tabIndex={0}
-          onKeyDown={e => {
-            if (
-              document.activeElement &&
-              (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
-            ) return;
-
-            const columns = 1;
-            if (e.key === 'ArrowDown') {
-              setSidebarFocusIndex(i => Math.min(i + columns, SOURCES.length - 1));
-              e.preventDefault();
-            }
-            if (e.key === 'ArrowUp') {
-              setSidebarFocusIndex(i => Math.max(i - columns, 0));
-              e.preventDefault();
-            }
-            if (e.key === 'ArrowRight') {
-              e.preventDefault();
-            }
-            if (e.key === 'ArrowLeft') {
-              e.preventDefault();
-            }
-            if (e.key === 'Enter') {
-              const source = SOURCES[sidebarFocusIndex];
-              if (source) {
-                setSelectedSource(source);
-              }
-              e.preventDefault();
-            }
-          }}
+          onFocus={() => setIsGridFocused(false)}
           style={{
             outline: 'none',
             height: window.innerWidth < 900 ? 'auto' : '100vh',
@@ -157,12 +225,14 @@ function App() {
           />
           {typeof window !== "undefined" && window.innerWidth < 900 ? (
             <select
-              value={selectedPlatform || SOURCES[sidebarFocusIndex]?.platform}
+              value={selectedPlatform || [...SOURCES, ...customSources][sidebarFocusIndex]?.platform}
               onChange={e => {
-                const source = SOURCES.find(s => s.platform === e.target.value);
+                const source = [...SOURCES, ...customSources].find(s => s.platform === e.target.value);
                 if (source) {
                   setSelectedSource(source);
-                  setSidebarFocusIndex(SOURCES.findIndex(s => s.platform === source.platform));
+                  setSidebarFocusIndex([...SOURCES, ...customSources].findIndex(s => s.platform === source.platform));
+                  setIsGridFocused(true);
+                  if (gridRef.current) gridRef.current.focus();
                 }
               }}
               style={{
@@ -177,7 +247,7 @@ function App() {
                 border: '1px solid #444'
               }}
             >
-              {SOURCES.map((s, idx) => (
+              {[...SOURCES, ...customSources].map((s, idx) => (
                 <option key={s.platform} value={s.platform}>
                   {s.name}
                 </option>
@@ -187,13 +257,19 @@ function App() {
             <PlatformSidebar
               selected={selectedPlatform}
               onSelect={(platformName) => {
-                const source = SOURCES.find(s => s.name === platformName || s.platform === platformName.toLowerCase());
+                const source = [...SOURCES, ...customSources].find(s => s.name === platformName || s.platform === platformName.toLowerCase());
                 if (source) {
                   setSelectedSource(source);
+                  setSelectedPlatform(source.platform);
+                  setIsGridFocused(true);
+                  if (gridRef.current) gridRef.current.focus();
                 }
               }}
               focusIndex={sidebarFocusIndex}
-              platforms={SOURCES.map(s => s.name)}
+              platforms={[...SOURCES, ...customSources].map(s => s.name)}
+              onFileUpload={handleFileUpload}
+              onUrlSubmit={handleUrlSubmit}
+              customSources={customSources}
             />
           )}
         </div>
@@ -232,7 +308,15 @@ function App() {
           )}
 
           {isWatching && selectedChannel ? (
-            <SimpleHlsPlayer url={selectedChannel.url} title={selectedChannel.name} />
+            <SimpleHlsPlayer
+              url={selectedChannel.url}
+              title={selectedChannel.name}
+              groupTitle={selectedGroup}
+              groupChannels={getGroupChannels()}
+              onSelectChannel={(channel) => {
+                setSelectedChannel(channel);
+              }}
+            />
           ) : selectedGroup ? (
             <>
               <div style={{ padding: '20px' }}>
@@ -254,6 +338,7 @@ function App() {
                 />
               </div>
               <ChannelGrid
+                ref={gridRef}
                 channels={flatEpisodes.filter(ch =>
                   searchTerm.trim() === '' ||
                   ch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -267,6 +352,7 @@ function App() {
                 setFocusedIndex={setFocusedIndex}
                 imageMap={imageMap}
                 isProgramPage={false}
+                setIsGridFocused={setIsGridFocused}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -278,6 +364,7 @@ function App() {
             </>
           ) : (
             <ChannelGrid
+              ref={gridRef}
               channels={filteredPrograms.map(name => ({
                 name,
                 logo: imageMap[name] || groupedChannels[name]?.[0]?.logo || null,
@@ -291,6 +378,7 @@ function App() {
               setFocusedIndex={setFocusedIndex}
               imageMap={imageMap}
               isProgramPage={true}
+              setIsGridFocused={setIsGridFocused}
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',

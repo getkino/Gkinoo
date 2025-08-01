@@ -1,3 +1,4 @@
+// src/components/SimpleHlsPlayer.jsx
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 
@@ -15,11 +16,10 @@ function formatTime(seconds) {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s}`;
 }
 
-export default function SimpleHlsPlayer({ url, title }) {
+export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels, onSelectChannel }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const buttonStates = useRef({});
-
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -39,11 +39,13 @@ export default function SimpleHlsPlayer({ url, title }) {
   const [showAudioOptions, setShowAudioOptions] = useState(false);
   const [showSubtitleOptions, setShowSubtitleOptions] = useState(false);
   const [showQualityOptions, setShowQualityOptions] = useState(false);
+  const [showChannelList, setShowChannelList] = useState(false);
   const [notification, setNotification] = useState('');
   const [notificationVisible, setNotificationVisible] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [progressBarVisible, setProgressBarVisible] = useState(true);
   const [notificationTimer, setNotificationTimer] = useState(null);
+  const [focusedChannelIndex, setFocusedChannelIndex] = useState(0);
 
   const enterFullscreen = () => {
     const container = document.getElementById('player-container');
@@ -135,14 +137,21 @@ export default function SimpleHlsPlayer({ url, title }) {
       setIsLive(isNaN(video.duration) || video.duration === Infinity);
     };
 
+    const handleEnded = () => {
+      setShowChannelList(true);
+      showNotification('Video bitti, bir sonraki bölümü seçin');
+    };
+
     video.addEventListener('timeupdate', updateTime);
     video.addEventListener('play', () => setIsPlaying(true));
     video.addEventListener('pause', () => setIsPlaying(false));
+    video.addEventListener('ended', handleEnded);
 
     return () => {
       video.removeEventListener('timeupdate', updateTime);
       video.removeEventListener('play', () => setIsPlaying(true));
       video.removeEventListener('pause', () => setIsPlaying(false));
+      video.removeEventListener('ended', handleEnded);
       hls.destroy();
     };
   }, [url]);
@@ -345,49 +354,79 @@ export default function SimpleHlsPlayer({ url, title }) {
     }, 3000));
   };
 
+  const handleChannelSelect = (channel, index) => {
+    onSelectChannel(channel);
+    setFocusedChannelIndex(index);
+    setShowChannelList(false);
+    showNotification(`Oynatılıyor: ${channel.name}`);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       const video = videoRef.current;
       if (!video) return;
 
-      switch (e.key.toLowerCase()) {
-        case ' ':
+      if (showChannelList) {
+        if (e.key === 'ArrowDown') {
+          setFocusedChannelIndex(prev => Math.min(prev + 1, groupChannels.length - 1));
           e.preventDefault();
-          togglePlayPause();
-          break;
-        case 'arrowright':
-          seekForward();
-          break;
-        case 'arrowleft':
-          seekBackward();
-          break;
-        case 'arrowup':
+        } else if (e.key === 'ArrowUp') {
+          setFocusedChannelIndex(prev => Math.max(prev - 1, 0));
           e.preventDefault();
-          video.volume = Math.min(video.volume + 0.1, 1);
-          showNotification(`🔊 Ses: %${Math.round(video.volume * 100)}`);
-          break;
-        case 'arrowdown':
-          e.preventDefault();
-          video.volume = Math.max(video.volume - 0.1, 0);
-          showNotification(`🔉 Ses: %${Math.round(video.volume * 100)}`);
-          break;
-        case 'm':
-          e.preventDefault();
-          video.muted = !video.muted;
-          showNotification(video.muted ? '🔇 Sessiz' : `🔊 Ses: %${Math.round(video.volume * 100)}`);
-          break;
-        case 'escape':
-          if (document.fullscreenElement) {
-            document.exitFullscreen();
-            showNotification('⛔ Tam ekrandan çıkıldı');
+        } else if (e.key === 'Enter') {
+          if (groupChannels[focusedChannelIndex]) {
+            handleChannelSelect(groupChannels[focusedChannelIndex], focusedChannelIndex);
           }
-          break;
+          e.preventDefault();
+        } else if (e.key === 'Escape') {
+          setShowChannelList(false);
+          e.preventDefault();
+        }
+      } else {
+        switch (e.key.toLowerCase()) {
+          case ' ':
+            e.preventDefault();
+            togglePlayPause();
+            break;
+          case 'arrowright':
+            seekForward();
+            break;
+          case 'arrowleft':
+            seekBackward();
+            break;
+          case 'arrowup':
+            e.preventDefault();
+            video.volume = Math.min(video.volume + 0.1, 1);
+            showNotification(`🔊 Ses: %${Math.round(video.volume * 100)}`);
+            break;
+          case 'arrowdown':
+            e.preventDefault();
+            video.volume = Math.max(video.volume - 0.1, 0);
+            showNotification(`🔉 Ses: %${Math.round(video.volume * 100)}`);
+            break;
+          case 'm':
+            e.preventDefault();
+            video.muted = !video.muted;
+            showNotification(video.muted ? '🔇 Sessiz' : `🔊 Ses: %${Math.round(video.volume * 100)}`);
+            break;
+          case 'l':
+            e.preventDefault();
+            setShowChannelList(true);
+            showNotification('Bölüm listesi açıldı');
+            break;
+          case 'escape':
+            if (document.fullscreenElement) {
+              document.exitFullscreen();
+              showNotification('⛔ Tam ekrandan çıkıldı');
+            }
+            break;
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [showChannelList, groupChannels, focusedChannelIndex]);
 
   useEffect(() => {
     const onMouseMove = () => showControls();
@@ -647,6 +686,34 @@ export default function SimpleHlsPlayer({ url, title }) {
         >
           <span className="material-icons" style={{ color: '#fff', fontSize: '48px' }}>forward_30</span>
         </button>
+        <button
+          onClick={() => {
+            setShowChannelList(!showChannelList);
+            showNotification(showChannelList ? 'Bölüm listesi kapatıldı' : 'Bölüm listesi açıldı');
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && setShowChannelList(!showChannelList)}
+          tabIndex={0}
+          style={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '20px',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        >
+          <span className="material-icons" style={{ color: '#fff', fontSize: '48px' }}>list</span>
+        </button>
       </div>
 
       {/* Bildirim */}
@@ -710,6 +777,46 @@ export default function SimpleHlsPlayer({ url, title }) {
             }} />
           </div>
         </>
+      )}
+
+      {/* Kanal Listesi */}
+      {showChannelList && groupChannels.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          right: '20px',
+          top: '20px',
+          width: '300px',
+          maxHeight: '80vh',
+          overflowY: 'auto',
+          background: 'rgba(0, 0, 0, 0.7)',
+          borderRadius: '8px',
+          padding: '10px',
+          zIndex: 1000,
+          color: '#fff',
+        }}>
+          <h3 style={{ margin: '10px 0', textAlign: 'center' }}>
+            {groupTitle || 'Bölümler'}
+          </h3>
+          {groupChannels.map((channel, index) => (
+            <div
+              key={channel.name + index}
+              tabIndex={0}
+              onClick={() => handleChannelSelect(channel, index)}
+              onKeyDown={(e) => e.key === 'Enter' && handleChannelSelect(channel, index)}
+              style={{
+                padding: '10px',
+                background: focusedChannelIndex === index ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.5)',
+                borderRadius: '5px',
+                marginBottom: '5px',
+                cursor: 'pointer',
+                transition: 'background 0.2s ease',
+                outline: focusedChannelIndex === index ? '2px solid cyan' : 'none',
+              }}
+            >
+              {channel.name}
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Kontrol Paneli */}

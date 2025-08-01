@@ -1,17 +1,16 @@
-// src/components/ChannelGrid.jsx
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, forwardRef } from 'react';
 import { getPoster } from '../utils/getPoster';
 
-export default function ChannelGrid({ channels, onSelect, focusedIndex, imageMap, setFocusedIndex, isProgramPage }) {
+const ChannelGrid = forwardRef(({ channels, onSelect, focusedIndex, imageMap, setFocusedIndex, isProgramPage, style, setIsGridFocused }, ref) => {
   const [posters, setPosters] = useState({});
   const containerRef = useRef(null);
 
-  // Responsive kolon ve afiş yüksekliği ayarı
+  // Responsive kolon sayısı
   const getColumns = () => {
-    if (window.innerWidth < 600) return 2;      // Telefon
-    if (window.innerWidth < 900) return 3;      // Tablet
-    if (window.innerWidth < 1400) return isProgramPage ? 4 : 3; // Küçük ekran TV/dar masaüstü
-    return isProgramPage ? 5 : 4;               // Büyük ekran
+    if (window.innerWidth < 600) return 2;    // Telefon: 2 kolon
+    if (window.innerWidth < 900) return 3;    // Tablet: 3 kolon
+    if (window.innerWidth < 1400) return 5;   // Küçük ekran TV/dar masaüstü: 5 kolon
+    return 7;                                // Büyük ekran: 7 kolon
   };
 
   const getPosterHeight = () => {
@@ -31,6 +30,7 @@ export default function ChannelGrid({ channels, onSelect, focusedIndex, imageMap
       setPosterHeight(getPosterHeight());
     };
     window.addEventListener('resize', handleResize);
+    handleResize(); // İlk yüklemede kolon sayısını ayarla
     return () => window.removeEventListener('resize', handleResize);
   }, [isProgramPage]);
 
@@ -49,18 +49,21 @@ export default function ChannelGrid({ channels, onSelect, focusedIndex, imageMap
 
   useEffect(() => {
     const item = containerRef.current?.querySelector(`[data-index="${focusedIndex}"]`);
-    if (item) item.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (item) {
+      item.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      item.focus();
+    }
   }, [focusedIndex]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Sadece grid aktifken yön tuşları çalışsın, input odakta ise engelle
+      // Input veya textarea odaklanmışsa klavye olaylarını atla
       if (
         document.activeElement &&
         (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
       ) return;
 
-      // Yön tuşları için satır/sütun mantığı
+      const columns = getColumns();
       if (e.key === "ArrowRight") {
         setFocusedIndex(i => {
           const next = i + 1;
@@ -85,31 +88,67 @@ export default function ChannelGrid({ channels, onSelect, focusedIndex, imageMap
           return prev >= 0 ? prev : i;
         });
         e.preventDefault();
-      } else if (e.key === "Enter") {
-        onSelect(channels[focusedIndex]);
+      } else if (e.key === "Enter" || e.key === "OK") {
+        if (channels[focusedIndex]) {
+          onSelect(channels[focusedIndex]);
+        }
         e.preventDefault();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [channels, focusedIndex, setFocusedIndex, onSelect, columns]);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [channels, focusedIndex, setFocusedIndex, onSelect]);
 
   return (
     <div
       ref={containerRef}
+      tabIndex={0}
+      onFocus={() => setIsGridFocused(true)}
       style={{
         padding: '20px',
         flex: 1,
         minHeight: 0,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        outline: 'none',
+        ...style
       }}
     >
+      <style>
+        {`
+          @keyframes marquee {
+            0% { transform: translateX(0); }
+            10% { transform: translateX(0); }
+            90% { transform: translateX(-100%); }
+            100% { transform: translateX(-100%); }
+          }
+          .marquee-container {
+            overflow: hidden;
+            position: relative;
+            width: 100%;
+          }
+          .marquee-text {
+            display: inline-block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            padding-right: 10px;
+          }
+          .marquee-text:hover, .marquee-text.focused {
+            animation: marquee 5s linear infinite;
+            animation-delay: 0.5s;
+            width: auto;
+          }
+        `}
+      </style>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(7, 1fr)`,
+          gridTemplateColumns: `repeat(${columns}, 1fr)`,
           gap: '12px',
           marginBottom: '24px',
           flex: 1,
@@ -122,11 +161,12 @@ export default function ChannelGrid({ channels, onSelect, focusedIndex, imageMap
             data-index={i}
             tabIndex={0}
             onClick={() => onSelect(ch)}
+            onFocus={() => setFocusedIndex(i)}
             style={{
               background: '#1e1e1e',
               borderRadius: '8px',
               cursor: 'pointer',
-              outline: 'none',
+              outline: i === focusedIndex ? '2px solid cyan' : 'none',
               border: i === focusedIndex ? '2px solid cyan' : 'none',
               overflow: 'hidden',
               display: 'flex',
@@ -155,22 +195,21 @@ export default function ChannelGrid({ channels, onSelect, focusedIndex, imageMap
                 }}
               />
             </div>
-            <div style={{
+            <div className="marquee-container" style={{
               padding: '6px',
               color: 'white',
               fontSize: '0.92rem',
               flex: '0 0 auto',
               minHeight: '2em',
-              textAlign: 'left',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
+              textAlign: 'left'
             }}>
-              {ch.name}
+              <span className={`marquee-text ${i === focusedIndex ? 'focused' : ''}`}>{ch.name}</span>
             </div>
           </div>
         ))}
       </div>
     </div>
   );
-}
+});
+
+export default ChannelGrid;
