@@ -6,15 +6,15 @@ import SimpleHlsPlayer from './components/SimpleHlsPlayer';
 import 'video.js/dist/video-js.css';
 
 const SOURCES = [
-  { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "dmax" },
-  { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "tlc" },
-  { name: "SPOR", url: "https://m3u.ch/YNZ63gqZ.m3u", platform: "spor" },
-  { name: "BEİN ÖZET", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/beinozet.m3u", platform: "beinozet" },
-  { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_movies.m3u", platform: "sinema" },
-  { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u", platform: "dizi" },
-  { name: "KABLO TV", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/denen/kablo.m3u", platform: "kablotv" },
-  { name: "YEDEK", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/serifilm.m3u", platform: "yedek" },
-  { name: "CARTOON NETWORK", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u", platform: "cartoon" }
+  { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "DMAX" },
+  { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "TLC" },
+  { name: "SPOR", url: "https://m3u.ch/YNZ63gqZ.m3u", platform: "SPOR" },
+  { name: "BEİN ÖZET", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/beinozet.m3u", platform: "BEİN ÖZET" },
+  { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_movies.m3u", platform: "POWER SİNEMA" },
+  { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u", platform: "POWER DİZİ" },
+  { name: "KABLO TV", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/denen/kablo.m3u", platform: "KABLO TV" },
+  { name: "YEDEK", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/serifilm.m3u", platform: "YEDEK" },
+  { name: "CARTOON NETWORK", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u", platform: "CARTOON NETWORK" }
 ];
 
 const imageMap = {
@@ -87,7 +87,7 @@ function App() {
         setSelectedChannel(null);
         setFocusedIndex(0);
         setIsWatching(false);
-        setSelectedPlatform(platform);
+        setSelectedPlatform(selectedSource.platform); // Burada platform adını doğrudan ata
       })
       .catch(err => {
         console.error('M3U yükleme hatası:', err);
@@ -173,7 +173,7 @@ function App() {
   const allPrograms = Object.keys(groupedChannels);
   const filteredPrograms = allPrograms.filter(name => {
     const platform = groupedChannels[name]?.[0]?.platform || '';
-    const matchesPlatform = selectedPlatform ? platform.toLowerCase() === selectedPlatform.toLowerCase() : true;
+    const matchesPlatform = selectedPlatform ? platform === selectedPlatform : true;
     const matchesSearch = searchTerm.trim() === '' || name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesPlatform && matchesSearch;
   });
@@ -224,40 +224,165 @@ function App() {
             }}
           />
           {typeof window !== "undefined" && window.innerWidth < 900 ? (
-            <select
-              value={selectedPlatform || [...SOURCES, ...customSources][sidebarFocusIndex]?.platform}
-              onChange={e => {
-                const source = [...SOURCES, ...customSources].find(s => s.platform === e.target.value);
-                if (source) {
-                  setSelectedSource(source);
-                  setSidebarFocusIndex([...SOURCES, ...customSources].findIndex(s => s.platform === source.platform));
-                  setIsGridFocused(true);
-                  if (gridRef.current) gridRef.current.focus();
-                }
-              }}
-              style={{
-                width: '90%',
-                margin: '0 auto 16px auto',
-                display: 'block',
-                padding: '12px',
-                fontSize: '1.1rem',
-                borderRadius: '8px',
-                background: '#23272f',
-                color: '#fff',
-                border: '1px solid #444'
-              }}
-            >
-              {[...SOURCES, ...customSources].map((s, idx) => (
-                <option key={s.platform} value={s.platform}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={selectedPlatform || [...SOURCES, ...customSources][sidebarFocusIndex]?.platform}
+                onChange={e => {
+                  const source = [...SOURCES, ...customSources].find(s => s.platform === e.target.value);
+                  if (source) {
+                    setSelectedSource(source);
+                    setSelectedPlatform(source.platform);
+                    setSidebarFocusIndex([...SOURCES, ...customSources].findIndex(s => s.platform === source.platform));
+                    setSelectedGroup(null); // Platform değişince bölüm sayfasını sıfırla
+                  }
+                }}
+                style={{
+                  width: '90%',
+                  margin: '0 auto 16px auto',
+                  display: 'block',
+                  padding: '12px',
+                  fontSize: '1.1rem',
+                  borderRadius: '8px',
+                  background: '#23272f',
+                  color: '#fff',
+                  border: '1px solid #444'
+                }}
+              >
+                {[...SOURCES, ...customSources].map((s, idx) => (
+                  <option key={s.platform} value={s.platform}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              {/* Mobilde: Arama kutusu ekle */}
+              <div style={{ padding: '10px 0 0 0', width: '100%' }}>
+                <div style={{ padding: '10px' }}>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Ara..."
+                    style={{
+                      width: '95%',
+                      padding: '10px',
+                      fontSize: '1rem',
+                      borderRadius: '8px',
+                      border: '1px solid #444',
+                      background: '#1e1e1e',
+                      color: 'white',
+                      marginBottom: '10px'
+                    }}
+                  />
+                </div>
+                {selectedGroup ? (
+                  <>
+                    <button
+                      style={{
+                        margin: '10px',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        background: '#23272f',
+                        color: '#fff',
+                        border: '1px solid #444',
+                        fontSize: '1rem'
+                      }}
+                      onClick={() => setSelectedGroup(null)}
+                    >
+                      ← Geri
+                    </button>
+                    <ChannelGrid
+                      ref={gridRef}
+                      channels={flatEpisodes.filter(ch =>
+                        searchTerm.trim() === '' ||
+                        ch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        ch.title?.toLowerCase().includes(searchTerm.toLowerCase())
+                      )}
+                      onSelect={(ch) => {
+                        setSelectedChannel(ch);
+                        setIsWatching(true);
+                      }}
+                      focusedIndex={focusedIndex}
+                      setFocusedIndex={setFocusedIndex}
+                      imageMap={imageMap}
+                      isProgramPage={false}
+                      setIsGridFocused={setIsGridFocused}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                        gap: '12px',
+                        padding: '10px',
+                        justifyItems: 'center',
+                        maxWidth: '100vw',
+                        overflowX: 'auto'
+                      }}
+                      // Dokunmatik desteği için
+                      onTouchStart={e => {
+                        const idx = Number(e.target.getAttribute('data-idx'));
+                        if (!isNaN(idx)) setFocusedIndex(idx);
+                      }}
+                      onTouchEnd={e => {
+                        const idx = Number(e.target.getAttribute('data-idx'));
+                        if (!isNaN(idx)) {
+                          const ch = flatEpisodes[idx];
+                          if (ch) {
+                            setSelectedChannel(ch);
+                            setIsWatching(true);
+                          }
+                        }
+                      }}
+                    />
+                  </>
+                ) : (
+                  <ChannelGrid
+                    ref={gridRef}
+                    channels={filteredPrograms.map((name, idx) => ({
+                      name,
+                      logo: imageMap[name] || groupedChannels[name]?.[0]?.logo || null,
+                      group: name,
+                      idx // index ekle
+                    }))}
+                    onSelect={(prog) => {
+                      setSelectedGroup(prog.name);
+                      setFocusedIndex(0);
+                    }}
+                    focusedIndex={focusedIndex}
+                    setFocusedIndex={setFocusedIndex}
+                    imageMap={imageMap}
+                    isProgramPage={true}
+                    setIsGridFocused={setIsGridFocused}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                      gap: '12px',
+                      padding: '10px',
+                      justifyItems: 'center',
+                      maxWidth: '100vw',
+                      overflowX: 'auto'
+                    }}
+                    // Dokunmatik desteği için
+                    onTouchStart={e => {
+                      const idx = Number(e.target.getAttribute('data-idx'));
+                      if (!isNaN(idx)) setFocusedIndex(idx);
+                    }}
+                    onTouchEnd={e => {
+                      const idx = Number(e.target.getAttribute('data-idx'));
+                      if (!isNaN(idx)) {
+                        const prog = filteredPrograms[idx];
+                        if (prog) {
+                          setSelectedGroup(prog);
+                          setFocusedIndex(0);
+                        }
+                      }
+                    }}
+                  />
+                )}
+              </div>
+            </>
           ) : (
             <PlatformSidebar
               selected={selectedPlatform}
               onSelect={(platformName) => {
-                const source = [...SOURCES, ...customSources].find(s => s.name === platformName || s.platform === platformName.toLowerCase());
+                const source = [...SOURCES, ...customSources].find(s => s.name === platformName || s.platform === platformName);
                 if (source) {
                   setSelectedSource(source);
                   setSelectedPlatform(source.platform);
@@ -316,6 +441,7 @@ function App() {
               onSelectChannel={(channel) => {
                 setSelectedChannel(channel);
               }}
+              onBack={() => setIsWatching(false)}
             />
           ) : selectedGroup ? (
             <>

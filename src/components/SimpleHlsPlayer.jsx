@@ -1,4 +1,3 @@
-// src/components/SimpleHlsPlayer.jsx
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 
@@ -16,7 +15,7 @@ function formatTime(seconds) {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s}`;
 }
 
-export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels, onSelectChannel }) {
+export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels, onSelectChannel, onBack }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const buttonStates = useRef({});
@@ -418,6 +417,11 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
             if (document.fullscreenElement) {
               document.exitFullscreen();
               showNotification('⛔ Tam ekrandan çıkıldı');
+            } else {
+              if (typeof onBack === 'function') {
+                onBack(); // Escape tuşuna basıldığında geri dön
+                showNotification('Geri dönüldü');
+              }
             }
             break;
         }
@@ -426,7 +430,7 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showChannelList, groupChannels, focusedChannelIndex]);
+  }, [showChannelList, groupChannels, focusedChannelIndex, onBack]);
 
   useEffect(() => {
     const onMouseMove = () => showControls();
@@ -467,22 +471,63 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
           willChange: 'transform'
         }}
       />
-      {/* Video İsmi */}
+      {/* Video İsmi ve Geri Butonu */}
       {title && controlsVisible && (
         <div style={{
           position: 'absolute',
           top: '20px',
           left: '20px',
-          background: 'rgba(0, 0, 0, 0.7)',
-          color: '#fff',
-          padding: '8px 16px',
-          borderRadius: '6px',
-          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
           zIndex: 1000,
           opacity: controlsVisible ? 1 : 0,
           transition: 'opacity 0.5s ease',
         }}>
-          {title}
+          <button
+            onClick={() => {
+              if (typeof onBack === 'function') {
+                onBack();
+                showNotification('Geri dönüldü');
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && typeof onBack === 'function') {
+                onBack();
+                showNotification('Geri dönüldü');
+              }
+            }}
+            tabIndex={0}
+            style={{
+              background: 'rgba(0, 0, 0, 0.5)',
+              border: 'none',
+              borderRadius: '50%',
+              padding: '10px',
+              cursor: 'pointer',
+              transition: 'background 0.2s, transform 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
+              e.currentTarget.style.transform = 'scale(1.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+          >
+            <span className="material-icons" style={{ color: '#fff', fontSize: '24px' }}>arrow_back</span>
+          </button>
+          <div style={{
+            background: 'rgba(0, 0, 0, 0.7)',
+            color: '#fff',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontWeight: 'bold',
+          }}>
+            {title}
+          </div>
         </div>
       )}
       {/* Dil Seçim Butonları */}
@@ -505,7 +550,7 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
               onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('turkishDubbed')}
               tabIndex={0}
               style={{
-                background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
                 color: '#fff',
                 padding: '10px',
                 borderRadius: '5px',
@@ -739,7 +784,7 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
           <div style={{
             position: 'absolute',
             bottom: '100px',
-            left: '12px',
+            left: 12,
             color: 'rgb(255, 255, 255)',
             fontSize: '14px',
             background: 'rgba(0,0,0,0.6)',
@@ -892,7 +937,7 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
             transition: 'background 0.2s ease, transform 0.2s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = selectedSubtitle >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+            e.currentTarget.style.background = selectedSubtitle >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50,0.7)';
             e.currentTarget.style.transform = 'scale(1.1)';
           }}
           onMouseLeave={(e) => {
