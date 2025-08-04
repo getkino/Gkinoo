@@ -29,6 +29,28 @@ const imageMap = {
   "CARTOON": "/images/cartoon.jpg",
 };
 
+function MobileHeader({ onMenuClick, theme, onThemeToggle }) {
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 900;
+  if (!isMobile) return null;
+  return (
+    <header className="mobile-header" style={{ background: theme === 'dark' ? '#121212' : '#fff', color: theme === 'dark' ? '#fff' : '#222' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <button className="header-btn" onClick={onMenuClick}>
+          <span className="material-icons">menu</span>
+        </button>
+        <div className="header-logo" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <img src="/logo.png" alt="Logo" style={{ height: 32, margin: '0 auto' }} />
+        </div>
+        <div className="header-actions" style={{ display: 'flex', alignItems: 'center' }}>
+          <button className="header-btn" onClick={onThemeToggle}>
+            <span className="material-icons">{theme === 'dark' ? 'wb_sunny' : 'dark_mode'}</span>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
 function App() {
   const [selectedSource, setSelectedSource] = useState(SOURCES[0]);
   const [groupedChannels, setGroupedChannels] = useState({});
@@ -41,6 +63,8 @@ function App() {
   const [sidebarFocusIndex, setSidebarFocusIndex] = useState(0);
   const [customSources, setCustomSources] = useState([]);
   const [isGridFocused, setIsGridFocused] = useState(false);
+  const [theme, setTheme] = useState('dark');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const sidebarRef = useRef(null);
   const gridRef = useRef(null);
 
@@ -171,12 +195,25 @@ function App() {
   const platformList = [...SOURCES, ...customSources].map(s => s.platform);
 
   const allPrograms = Object.keys(groupedChannels);
-  const filteredPrograms = allPrograms.filter(name => {
-    const platform = groupedChannels[name]?.[0]?.platform || '';
-    const matchesPlatform = selectedPlatform ? platform === selectedPlatform : true;
-    const matchesSearch = searchTerm.trim() === '' || name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesPlatform && matchesSearch;
-  });
+
+  // Arama varsa platformdan bağımsız, yoksa platforma göre filtrele
+  const filteredPrograms = searchTerm.trim() === ''
+    ? allPrograms.filter(name => {
+        const platform = groupedChannels[name]?.[0]?.platform || '';
+        const matchesPlatform = selectedPlatform ? platform === selectedPlatform : true;
+        return matchesPlatform;
+      })
+    : allPrograms.filter(name => {
+        // Arama: program adı veya programdaki herhangi bir kanalın adı/title eşleşirse göster
+        const lowerSearch = searchTerm.toLowerCase();
+        const channels = groupedChannels[name] || [];
+        const nameMatch = name.toLowerCase().includes(lowerSearch);
+        const channelMatch = channels.some(ch =>
+          ch.name?.toLowerCase().includes(lowerSearch) ||
+          ch.title?.toLowerCase().includes(lowerSearch)
+        );
+        return nameMatch || channelMatch;
+      });
 
   const flatEpisodes = selectedGroup ? groupedChannels[selectedGroup] : [];
 
@@ -187,333 +224,276 @@ function App() {
     return [];
   };
 
+  // Tema değiştirici
+  const handleThemeToggle = () => {
+    setTheme(t => t === 'dark' ? 'light' : 'dark');
+    document.body.style.background = theme === 'dark' ? '#fff' : '#121212';
+  };
+
+  // Platform değişimi
+  const handlePlatformChange = (platform) => {
+    const source = [...SOURCES, ...customSources].find(s => s.platform === platform);
+    if (source) {
+      setSelectedSource(source);
+      setSelectedPlatform(source.platform);
+      setSidebarFocusIndex([...SOURCES, ...customSources].findIndex(s => s.platform === source.platform));
+      setSelectedGroup(null);
+      setMobileMenuOpen(false);
+    }
+  };
+
+  // Arama kutusu işlevi
+  const handleSearchChange = (val) => {
+    setSearchTerm(val);
+  };
+
+  // Menü aç/kapat
+  const handleMenuClick = () => {
+    setMobileMenuOpen(o => !o);
+  };
+
   return (
     <div style={{
       display: 'flex',
       minHeight: '100vh',
       height: '100%',
-      background: '#121212'
+      background: theme === 'dark' ? '#121212' : '#fff',
+      flexDirection: 'column'
     }}>
-      {!isWatching && (
+      <MobileHeader
+        onMenuClick={handleMenuClick}
+        theme={theme}
+        onThemeToggle={handleThemeToggle}
+      />
+      {/* Mobilde açılır menü/modal */}
+      {typeof window !== "undefined" && window.innerWidth < 900 && mobileMenuOpen && (
         <div
-          ref={sidebarRef}
-          tabIndex={0}
-          onFocus={() => setIsGridFocused(false)}
           style={{
-            outline: 'none',
-            height: window.innerWidth < 900 ? 'auto' : '100vh',
-            minHeight: window.innerWidth < 900 ? 'unset' : '100vh',
-            maxHeight: window.innerWidth < 900 ? 'unset' : '100vh',
-            width: window.innerWidth < 900 ? '100%' : undefined,
-            background: window.innerWidth < 900 ? 'rgba(13,13,13,0.5)' : 'rgba(13,13,13,0.5)',
-            paddingBottom: window.innerWidth < 900 ? 0 : undefined,
-            minWidth: window.innerWidth < 900 ? 'unset' : 220,
-            backdropFilter: 'blur(6px)'
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: theme === 'dark' ? 'rgba(20,20,20,0.98)' : 'rgba(255,255,255,0.98)',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '32px 16px 16px 16px'
           }}
         >
-          <img
-            src="/logo.png"
-            alt="Logo"
+          <button
             style={{
-              display: 'block',
-              margin: '24px auto auto',
-              width: '180px',
-              height: 'auto',
+              alignSelf: 'flex-end',
               background: 'none',
-              backgroundColor: 'transparent'
+              border: 'none',
+              fontSize: 28,
+              color: theme === 'dark' ? '#fff' : '#222',
+              marginBottom: 12
+            }}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <span className="material-icons">close</span>
+          </button>
+          <img src="/logo.png" alt="Logo" style={{ height: 48, margin: '0 auto 24px auto', display: 'block' }} />
+          <select
+            value={selectedPlatform || SOURCES[0].platform}
+            onChange={e => handlePlatformChange(e.target.value)}
+            style={{
+              width: '100%',
+              marginBottom: '16px',
+              padding: '12px',
+              fontSize: '1.1rem',
+              borderRadius: '8px',
+              background: theme === 'dark' ? '#23272f' : '#eee',
+              color: theme === 'dark' ? '#fff' : '#222',
+              border: '1px solid #444'
+            }}
+          >
+            {[...SOURCES, ...customSources].map((s, idx) => (
+              <option key={s.platform} value={s.platform}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => handleSearchChange(e.target.value)}
+            placeholder="Ara..."
+            style={{
+              width: '100%',
+              padding: '10px',
+              fontSize: '1rem',
+              borderRadius: '8px',
+              border: '1px solid #444',
+              background: theme === 'dark' ? '#1e1e1e' : '#fff',
+              color: theme === 'dark' ? 'white' : '#222',
+              marginBottom: '10px'
             }}
           />
-          {typeof window !== "undefined" && window.innerWidth < 900 ? (
-            <>
-              <select
-                value={selectedPlatform || [...SOURCES, ...customSources][sidebarFocusIndex]?.platform}
-                onChange={e => {
-                  const source = [...SOURCES, ...customSources].find(s => s.platform === e.target.value);
+        </div>
+      )}
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        {!isWatching && (
+          <div
+            ref={sidebarRef}
+            tabIndex={0}
+            onFocus={() => setIsGridFocused(false)}
+            style={{
+              outline: 'none',
+              height: window.innerWidth < 900 ? 'auto' : '100vh',
+              minHeight: window.innerWidth < 900 ? 'unset' : '100vh',
+              maxHeight: window.innerWidth < 900 ? 'unset' : '100vh',
+              width: window.innerWidth < 900 ? '100%' : undefined,
+              background: window.innerWidth < 900 ? (theme === 'dark' ? 'rgba(13,13,13,0.5)' : '#fff') : (theme === 'dark' ? 'rgba(13,13,13,0.5)' : '#fff'),
+              paddingBottom: window.innerWidth < 900 ? 0 : undefined,
+              minWidth: window.innerWidth < 900 ? 'unset' : 220,
+              backdropFilter: 'blur(6px)'
+            }}
+          >
+            {/* Mobilde sidebar gizli, masaüstünde göster */}
+            {typeof window !== "undefined" && window.innerWidth < 900 ? (
+              <></>
+            ) : (
+              <PlatformSidebar
+                selected={selectedPlatform}
+                onSelect={(platformName) => {
+                  const source = [...SOURCES, ...customSources].find(s => s.name === platformName || s.platform === platformName);
                   if (source) {
                     setSelectedSource(source);
                     setSelectedPlatform(source.platform);
-                    setSidebarFocusIndex([...SOURCES, ...customSources].findIndex(s => s.platform === source.platform));
-                    setSelectedGroup(null); // Platform değişince bölüm sayfasını sıfırla
+                    setIsGridFocused(true);
+                    if (gridRef.current) gridRef.current.focus();
                   }
                 }}
-                style={{
-                  width: '90%',
-                  margin: '0 auto 16px auto',
-                  display: 'block',
-                  padding: '12px',
-                  fontSize: '1.1rem',
-                  borderRadius: '8px',
-                  background: '#23272f',
-                  color: '#fff',
-                  border: '1px solid #444'
+                focusIndex={sidebarFocusIndex}
+                platforms={[...SOURCES, ...customSources].map(s => s.name)}
+                onFileUpload={handleFileUpload}
+                onUrlSubmit={handleUrlSubmit}
+                customSources={customSources}
+              />
+            )}
+          </div>
+        )}
+
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Arama kutusu MobileHeader ve mobil menüye taşındı, burada kaldırıldı */}
+            {isWatching && selectedChannel ? (
+              <SimpleHlsPlayer
+                url={selectedChannel.url}
+                title={selectedChannel.name}
+                groupTitle={selectedGroup}
+                groupChannels={getGroupChannels()}
+                onSelectChannel={(channel) => {
+                  setSelectedChannel(channel);
                 }}
-              >
-                {[...SOURCES, ...customSources].map((s, idx) => (
-                  <option key={s.platform} value={s.platform}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              {/* Mobilde: Arama kutusu ekle */}
-              <div style={{ padding: '10px 0 0 0', width: '100%' }}>
-                <div style={{ padding: '10px' }}>
+                onBack={() => setIsWatching(false)}
+              />
+            ) : selectedGroup ? (
+              <>
+                {/* Masaüstü için arama kutusu kaldırıldı */}
+                {/* <div style={{ padding: '20px' }}>
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     placeholder="Ara..."
                     style={{
-                      width: '95%',
+                      width: '100%',
                       padding: '10px',
                       fontSize: '1rem',
                       borderRadius: '8px',
                       border: '1px solid #444',
-                      background: '#1e1e1e',
-                      color: 'white',
-                      marginBottom: '10px'
+                      background: theme === 'dark' ? '#1e1e1e' : '#fff',
+                      color: theme === 'dark' ? 'white' : '#222',
+                      marginBottom: '20px'
                     }}
                   />
-                </div>
-                {selectedGroup ? (
-                  <>
-                    <button
-                      style={{
-                        margin: '10px',
-                        padding: '8px 16px',
-                        borderRadius: '6px',
-                        background: '#23272f',
-                        color: '#fff',
-                        border: '1px solid #444',
-                        fontSize: '1rem'
-                      }}
-                      onClick={() => setSelectedGroup(null)}
-                    >
-                      ← Geri
-                    </button>
-                    <ChannelGrid
-                      ref={gridRef}
-                      channels={flatEpisodes.filter(ch =>
-                        searchTerm.trim() === '' ||
-                        ch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        ch.title?.toLowerCase().includes(searchTerm.toLowerCase())
-                      )}
-                      onSelect={(ch) => {
-                        setSelectedChannel(ch);
-                        setIsWatching(true);
-                      }}
-                      focusedIndex={focusedIndex}
-                      setFocusedIndex={setFocusedIndex}
-                      imageMap={imageMap}
-                      isProgramPage={false}
-                      setIsGridFocused={setIsGridFocused}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                        gap: '12px',
-                        padding: '10px',
-                        justifyItems: 'center',
-                        maxWidth: '100vw',
-                        overflowX: 'auto'
-                      }}
-                      // Dokunmatik desteği için
-                      onTouchStart={e => {
-                        const idx = Number(e.target.getAttribute('data-idx'));
-                        if (!isNaN(idx)) setFocusedIndex(idx);
-                      }}
-                      onTouchEnd={e => {
-                        const idx = Number(e.target.getAttribute('data-idx'));
-                        if (!isNaN(idx)) {
-                          const ch = flatEpisodes[idx];
-                          if (ch) {
-                            setSelectedChannel(ch);
-                            setIsWatching(true);
-                          }
-                        }
-                      }}
-                    />
-                  </>
-                ) : (
-                  <ChannelGrid
-                    ref={gridRef}
-                    channels={filteredPrograms.map((name, idx) => ({
-                      name,
-                      logo: imageMap[name] || groupedChannels[name]?.[0]?.logo || null,
-                      group: name,
-                      idx // index ekle
-                    }))}
-                    onSelect={(prog) => {
-                      setSelectedGroup(prog.name);
-                      setFocusedIndex(0);
-                    }}
-                    focusedIndex={focusedIndex}
-                    setFocusedIndex={setFocusedIndex}
-                    imageMap={imageMap}
-                    isProgramPage={true}
-                    setIsGridFocused={setIsGridFocused}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                      gap: '12px',
-                      padding: '10px',
-                      justifyItems: 'center',
-                      maxWidth: '100vw',
-                      overflowX: 'auto'
-                    }}
-                    // Dokunmatik desteği için
-                    onTouchStart={e => {
-                      const idx = Number(e.target.getAttribute('data-idx'));
-                      if (!isNaN(idx)) setFocusedIndex(idx);
-                    }}
-                    onTouchEnd={e => {
-                      const idx = Number(e.target.getAttribute('data-idx'));
-                      if (!isNaN(idx)) {
-                        const prog = filteredPrograms[idx];
-                        if (prog) {
-                          setSelectedGroup(prog);
-                          setFocusedIndex(0);
-                        }
-                      }
-                    }}
-                  />
-                )}
-              </div>
-            </>
-          ) : (
-            <PlatformSidebar
-              selected={selectedPlatform}
-              onSelect={(platformName) => {
-                const source = [...SOURCES, ...customSources].find(s => s.name === platformName || s.platform === platformName);
-                if (source) {
-                  setSelectedSource(source);
-                  setSelectedPlatform(source.platform);
-                  setIsGridFocused(true);
-                  if (gridRef.current) gridRef.current.focus();
-                }
-              }}
-              focusIndex={sidebarFocusIndex}
-              platforms={[...SOURCES, ...customSources].map(s => s.name)}
-              onFileUpload={handleFileUpload}
-              onUrlSubmit={handleUrlSubmit}
-              customSources={customSources}
-            />
-          )}
-        </div>
-      )}
-
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          {!isWatching && !selectedGroup && (
-            <div style={{ padding: '20px' }}>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Ara..."
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  fontSize: '1rem',
-                  borderRadius: '8px',
-                  border: '1px solid #444',
-                  background: '#1e1e1e',
-                  color: 'white',
-                  marginBottom: '20px'
-                }}
-              />
-            </div>
-          )}
-
-          {isWatching && selectedChannel ? (
-            <SimpleHlsPlayer
-              url={selectedChannel.url}
-              title={selectedChannel.name}
-              groupTitle={selectedGroup}
-              groupChannels={getGroupChannels()}
-              onSelectChannel={(channel) => {
-                setSelectedChannel(channel);
-              }}
-              onBack={() => setIsWatching(false)}
-            />
-          ) : selectedGroup ? (
-            <>
-              <div style={{ padding: '20px' }}>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Ara..."
+                </div> */}
+                <ChannelGrid
+                  ref={gridRef}
+                  channels={flatEpisodes.filter(ch =>
+                    searchTerm.trim() === '' ||
+                    ch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    ch.title?.toLowerCase().includes(searchTerm.toLowerCase())
+                  )}
+                  onSelect={(ch) => {
+                    setSelectedChannel(ch);
+                    setIsWatching(true);
+                  }}
+                  focusedIndex={focusedIndex}
+                  setFocusedIndex={setFocusedIndex}
+                  imageMap={imageMap}
+                  isProgramPage={false}
+                  setIsGridFocused={setIsGridFocused}
                   style={{
-                    width: '100%',
-                    padding: '10px',
-                    fontSize: '1rem',
-                    borderRadius: '8px',
-                    border: '1px solid #444',
-                    background: '#1e1e1e',
-                    color: 'white',
-                    marginBottom: '20px'
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '20px',
+                    padding: '20px',
+                    justifyItems: 'center',
                   }}
                 />
-              </div>
-              <ChannelGrid
-                ref={gridRef}
-                channels={flatEpisodes.filter(ch =>
-                  searchTerm.trim() === '' ||
-                  ch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  ch.title?.toLowerCase().includes(searchTerm.toLowerCase())
-                )}
-                onSelect={(ch) => {
-                  setSelectedChannel(ch);
-                  setIsWatching(true);
-                }}
-                focusedIndex={focusedIndex}
-                setFocusedIndex={setFocusedIndex}
-                imageMap={imageMap}
-                isProgramPage={false}
-                setIsGridFocused={setIsGridFocused}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: '20px',
-                  padding: '20px',
-                  justifyItems: 'center',
-                }}
-              />
-            </>
-          ) : (
-            <ChannelGrid
-              ref={gridRef}
-              channels={filteredPrograms.map(name => ({
-                name,
-                logo: imageMap[name] || groupedChannels[name]?.[0]?.logo || null,
-                group: name
-              }))}
-              onSelect={(prog) => {
-                setSelectedGroup(prog.name);
-                setFocusedIndex(0);
-              }}
-              focusedIndex={focusedIndex}
-              setFocusedIndex={setFocusedIndex}
-              imageMap={imageMap}
-              isProgramPage={true}
-              setIsGridFocused={setIsGridFocused}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '20px',
-                padding: '20px',
-                justifyItems: 'center',
-              }}
-            />
-          )}
+              </>
+            ) : (
+              <>
+                {/* Masaüstü için arama kutusu kaldırıldı */}
+                {/* <div style={{ padding: '20px' }}>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Ara..."
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      fontSize: '1rem',
+                      borderRadius: '8px',
+                      border: '1px solid #444',
+                      background: theme === 'dark' ? '#1e1e1e' : '#fff',
+                      color: theme === 'dark' ? 'white' : '#222',
+                      marginBottom: '20px'
+                    }}
+                  />
+                </div> */}
+                <ChannelGrid
+                  ref={gridRef}
+                  channels={filteredPrograms.map(name => ({
+                    name,
+                    logo: imageMap[name] || groupedChannels[name]?.[0]?.logo || null,
+                    group: name
+                  }))}
+                  onSelect={(prog) => {
+                    setSelectedGroup(prog.name);
+                    setFocusedIndex(0);
+                  }}
+                  focusedIndex={focusedIndex}
+                  setFocusedIndex={setFocusedIndex}
+                  imageMap={imageMap}
+                  isProgramPage={true}
+                  setIsGridFocused={setIsGridFocused}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '20px',
+                    padding: '20px',
+                    justifyItems: 'center',
+                  }}
+                />
+              </>
+            )}
+            {/* ...existing code... */}
+          </div>
         </div>
       </div>
     </div>

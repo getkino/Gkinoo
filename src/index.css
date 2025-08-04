@@ -86,3 +86,67 @@ html, body, #root {
   box-sizing: border-box;
 }
 
+.mobile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #181818;
+  padding: 0 12px;
+  height: 56px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  border-bottom: 1px solid #222;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-title {
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  letter-spacing: 0.5px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-btn {
+  background: #232a4d;
+  border: none;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-btn:hover {
+  background: #2d3a7b;
+}
+
+@media (min-width: 900px) {
+  .mobile-header {
+    display: none;
+  }
+}
+
+/* Mobilde ana içerik header'ın altında başlasın */
+@media (max-width: 900px) {
+  body, #root {
+    padding-top: 56px !important;
+  }
+}
+
