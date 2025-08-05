@@ -183,7 +183,7 @@ const ChannelGrid = forwardRef(({ channels, onSelect, focusedIndex, imageMap, se
                 src={
                   isProgramPage
                     ? (posters?.[ch.name] || imageMap?.[ch.name] || ch.logo || '/images/default.jpg')
-                    : (ch.logo || imageMap?.[ch.group] || '/images/default.jpg')
+                    : (ch.logo || imageMap?.[ch.group] || posters?.[ch.name] || '/images/default.jpg')
                 }
                 alt={ch.name}
                 loading="lazy"

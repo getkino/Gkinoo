@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { parseM3U } from './utils/parseM3U';
+import { getTmdbSeriesInfo } from './utils/getTmdbSeriesInfo';
+import { getTmdbMovieInfo } from './utils/getTmdbMovieInfo';
 import PlatformSidebar from './components/PlatformSidebar';
 import ChannelGrid from './components/ChannelGrid';
 import SimpleHlsPlayer from './components/SimpleHlsPlayer';
@@ -65,6 +67,7 @@ function App() {
   const [isGridFocused, setIsGridFocused] = useState(false);
   const [theme, setTheme] = useState('dark');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [tmdbInfo, setTmdbInfo] = useState(null);
   const sidebarRef = useRef(null);
   const gridRef = useRef(null);
 
@@ -118,6 +121,31 @@ function App() {
         alert('M3U dosyası yüklenemedi. Lütfen geçerli bir dosya veya URL seçin.');
       });
   }, [selectedSource]);
+
+  useEffect(() => {
+    // Seçili grup veya kanal değişince TMDB'den veri çek
+    if (selectedGroup) {
+      getTmdbSeriesInfo(selectedGroup).then(setTmdbInfo);
+    } else if (selectedChannel) {
+      // Kanal varsa, tvg-name veya name ile TMDB'den info çek
+      const channelName = selectedChannel['tvg-name'] || selectedChannel.name;
+      // Film mi dizi mi ayırt et (örnek: tvg-name ve name aynıysa ve name sonunda yıl varsa film)
+      const isMovie = !!(channelName && channelName.match(/\(\d{4}\)$/));
+      if (channelName) {
+        if (isMovie) {
+          // Film ise film detaylarını çek
+          getTmdbMovieInfo(channelName.replace(/\s*\(\d{4}\)$/, '')).then(setTmdbInfo);
+        } else {
+          // Dizi ise dizi detaylarını çek
+          getTmdbSeriesInfo(channelName).then(setTmdbInfo);
+        }
+      } else {
+        setTmdbInfo(null);
+      }
+    } else {
+      setTmdbInfo(null);
+    }
+  }, [selectedGroup, selectedChannel]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -398,28 +426,11 @@ function App() {
                   setSelectedChannel(channel);
                 }}
                 onBack={() => setIsWatching(false)}
+                tmdbInfo={tmdbInfo}
               />
             ) : selectedGroup ? (
               <>
-                {/* Masaüstü için arama kutusu kaldırıldı */}
-                {/* <div style={{ padding: '20px' }}>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Ara..."
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      fontSize: '1rem',
-                      borderRadius: '8px',
-                      border: '1px solid #444',
-                      background: theme === 'dark' ? '#1e1e1e' : '#fff',
-                      color: theme === 'dark' ? 'white' : '#222',
-                      marginBottom: '20px'
-                    }}
-                  />
-                </div> */}
+                {/* TMDB Dizi Bilgisi kaldırıldı, player içine taşındı */}
                 <ChannelGrid
                   ref={gridRef}
                   channels={flatEpisodes.filter(ch =>
@@ -447,25 +458,6 @@ function App() {
               </>
             ) : (
               <>
-                {/* Masaüstü için arama kutusu kaldırıldı */}
-                {/* <div style={{ padding: '20px' }}>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Ara..."
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      fontSize: '1rem',
-                      borderRadius: '8px',
-                      border: '1px solid #444',
-                      background: theme === 'dark' ? '#1e1e1e' : '#fff',
-                      color: theme === 'dark' ? 'white' : '#222',
-                      marginBottom: '20px'
-                    }}
-                  />
-                </div> */}
                 <ChannelGrid
                   ref={gridRef}
                   channels={filteredPrograms.map(name => ({

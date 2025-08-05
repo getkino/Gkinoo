@@ -10,6 +10,7 @@ GKinoo, çeşitli kaynaklarından canlı TV, dizi, film ve çizgi film içerikle
 - **Hızlı ve Modern Arayüz:** Kullanıcı dostu, sade ve koyu temalı arayüz.
 - **HLS Player:** Canlı yayınları ve içerikleri doğrudan uygulama üzerinden izleyin.
 - **Mobil ve Masaüstü Uyumluluğu:** Tüm cihazlarda sorunsuz kullanım.
+- **Dizi Bilgisi:** Bölümler sayfasında seçilen dizi hakkında TMDB'den poster, özet, tür, yıl ve puan bilgisi otomatik gösterilir.
 
 ## Kurulum ve Çalıştırma
 
@@ -29,6 +30,7 @@ GKinoo, çeşitli kaynaklarından canlı TV, dizi, film ve çizgi film içerikle
 - [Vite](https://vitejs.dev/)
 - [HLS.js](https://github.com/video-dev/hls.js/)
 - [Legal-IPTV kaynakları](https://github.com/UzunMuhalefet/Legal-IPTV)
+- [TMDB API](https://www.themoviedb.org/documentation/api)
 
 ## Lisans
 
