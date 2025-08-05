@@ -14,6 +14,7 @@ export default function PlatformSeriesDetail() {
     if (window.innerWidth < 600) return 2;
     if (window.innerWidth < 900) return 3;
     if (window.innerWidth < 1400) return 5;
+    if (window.innerWidth < 1800) return 7;
     return 9;
   }
 
