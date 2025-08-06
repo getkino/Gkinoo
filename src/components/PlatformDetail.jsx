@@ -1,9 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { parseM3U } from './PlatformShowcase';
 
 function groupByTvgName(groups) {
-  // Tüm gruplardaki dizileri tek bir diziye topla
   const allSeries = Object.values(groups).flat();
   const tvgMap = {};
   for (const item of allSeries) {
@@ -14,6 +13,14 @@ function groupByTvgName(groups) {
   return tvgMap;
 }
 
+const getColumns = () => {
+  if (window.innerWidth < 600) return 2;
+  if (window.innerWidth < 900) return 3;
+  if (window.innerWidth < 1400) return 5;
+  if (window.innerWidth < 1800) return 7;
+  return 9;
+};
+
 export default function PlatformDetail() {
   const { state } = useLocation();
   const navigate = useNavigate();
@@ -21,7 +28,51 @@ export default function PlatformDetail() {
   const [groups, setGroups] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedSeries, setSelectedSeries] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [columns, setColumns] = useState(getColumns);
+  const itemRefs = useRef([]);
 
+  // Memoized calculations
+  const tvgGroups = useMemo(() => groupByTvgName(groups), [groups]);
+  
+  const filteredTvgGroups = useMemo(() => 
+    Object.fromEntries(
+      Object.entries(tvgGroups).filter(([tvgName]) =>
+        tvgName.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    ), [tvgGroups, searchTerm]
+  );
+
+  const currentItems = useMemo(() => 
+    selectedSeries ? selectedSeries : Object.entries(filteredTvgGroups),
+    [selectedSeries, filteredTvgGroups]
+  );
+
+  // Callbacks
+  const handleBackClick = useCallback(() => navigate('/'), [navigate]);
+  
+  const handleSeriesBackClick = useCallback(() => {
+    setSelectedSeries(null);
+    setFocusedIndex(0);
+  }, []);
+
+  const handleSeriesClick = useCallback((tvgName, episodes) => {
+    navigate(`/platform/${encodeURIComponent(platform.name)}/${encodeURIComponent(tvgName)}`, {
+      state: { platform, series: tvgName, episodes }
+    });
+  }, [navigate, platform]);
+
+  const handleEpisodeClick = useCallback((url) => {
+    if (url) window.open(url, '_blank');
+  }, []);
+
+  const handleSearchChange = useCallback((e) => {
+    setSearchTerm(e.target.value);
+    setFocusedIndex(0);
+  }, []);
+
+  // Fetch M3U data
   useEffect(() => {
     async function fetchM3U() {
       if (!platform?.m3u) return;
@@ -36,33 +87,79 @@ export default function PlatformDetail() {
       setLoading(false);
     }
     fetchM3U();
-  }, [platform]);
+  }, [platform?.m3u]);
 
-  const tvgGroups = groupByTvgName(groups);
-
-  const getColumns = () => {
-    if (window.innerWidth < 600) return 2;
-    if (window.innerWidth < 900) return 3;
-    if (window.innerWidth < 1400) return 5;
-    if (window.innerWidth < 1800) return 7;
-    return 9;
-  };
-
-  const [columns, setColumns] = useState(getColumns());
-
+  // Window resize handler
   useEffect(() => {
-    function handleResize() {
-      setColumns(getColumns());
-    }
+    const handleResize = () => setColumns(getColumns());
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (currentItems.length === 0) return;
+
+      // Sadece uzaktan kumanda tuşlarını kabul et
+      const allowedKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape', 'Backspace'];
+      if (!allowedKeys.includes(e.key)) return;
+
+      let newIndex = focusedIndex;
+      const maxIndex = currentItems.length - 1;
+
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          newIndex = Math.max(0, focusedIndex - columns);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          newIndex = Math.min(maxIndex, focusedIndex + columns);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          newIndex = Math.max(0, focusedIndex - 1);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          newIndex = Math.min(maxIndex, focusedIndex + 1);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (selectedSeries) {
+            const bolum = selectedSeries[focusedIndex];
+            handleEpisodeClick(bolum?.url);
+          } else {
+            const [tvgName, episodes] = currentItems[focusedIndex];
+            handleSeriesClick(tvgName, episodes);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          if (selectedSeries) {
+            handleSeriesBackClick();
+          } else {
+            handleBackClick();
+          }
+          break;
+      }
+
+      if (newIndex !== focusedIndex) {
+        setFocusedIndex(newIndex);
+        itemRefs.current[newIndex]?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedIndex, selectedSeries, columns, currentItems, handleBackClick, handleSeriesBackClick, handleSeriesClick, handleEpisodeClick]);
 
   if (!platform) return <div style={{color:'#fff'}}>Platform bilgisi yok.</div>;
 
   return (
     <div style={{background:'#111', minHeight:'100vh', color:'#fff', padding:'0px'}}>
-      {/* Üstte logo ve video iç içe, kararartma efekti ile */}
+      {/* Header section */}
       <div style={{
         display: 'flex',
         flexDirection: 'column',
@@ -73,25 +170,47 @@ export default function PlatformDetail() {
         maxWidth: '100vw',
         height: '30vh'
       }}>
-        <video
-          src={platform.video}
-          autoPlay
-          loop
-          muted
+        <button
+          onClick={handleBackClick}
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '30vh',
-            objectFit: 'cover',
-            borderRadius: 0,
-            background: '#222',
-            boxShadow: 'none',
-            zIndex: 1
+            top: 16,
+            left: 16,
+            background: 'rgba(0,0,0,0.7)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '10px',
+            fontSize: '20px',
+            cursor: 'pointer',
+            zIndex: 10,
+            marginLeft: '5px',
           }}
-        />
-        {/* Karartma overlay */}
+        >
+          <span className="material-icons">arrow_back</span>
+        </button>
+        
+        {platform.video && (
+          <video
+            src={platform.video}
+            autoPlay
+            loop
+            muted
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '30vh',
+              objectFit: 'cover',
+              borderRadius: 0,
+              background: '#222',
+              boxShadow: 'none',
+              zIndex: 1
+            }}
+          />
+        )}
+        
         <div
           style={{
             position: 'absolute',
@@ -104,24 +223,29 @@ export default function PlatformDetail() {
             pointerEvents: 'none'
           }}
         />
-        <img
-          src={platform.logo}
-          alt={platform.name}
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '15%',
-            maxWidth: '90vw',
-            objectFit: 'contain',
-            background: 'transparent',
-            boxShadow: 'none',
-            pointerEvents: 'none',
-            zIndex: 3
-          }}
-        />
+        
+        {platform.logo && (
+          <img
+            src={platform.logo}
+            alt={platform.name}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '15%',
+              maxWidth: '90vw',
+              objectFit: 'contain',
+              background: 'transparent',
+              boxShadow: 'none',
+              pointerEvents: 'none',
+              zIndex: 3
+            }}
+          />
+        )}
       </div>
+
+      {/* Content section */}
       {loading ? (
         <div>Yükleniyor...</div>
       ) : Object.keys(tvgGroups).length === 0 ? (
@@ -129,7 +253,7 @@ export default function PlatformDetail() {
       ) : selectedSeries ? (
         <div>
           <button
-            onClick={() => setSelectedSeries(null)}
+            onClick={handleSeriesBackClick}
             style={{
               background: 'rgba(255,255,255,0.1)',
               color: '#fff',
@@ -150,87 +274,117 @@ export default function PlatformDetail() {
             gap: '24px'
           }}>
             {selectedSeries.map((bolum, i) => (
-              <div key={i} style={{
-                background: '#222',
-                borderRadius: '12px',
-                boxShadow: '0 2px 12px #0008',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                padding: '16px',
-                cursor: 'pointer'
-              }}
-              onClick={() => window.open(bolum.url, '_blank')}
+              <div
+                key={i}
+                ref={(el) => (itemRefs.current[i] = el)}
+                tabIndex={0}
+                style={{
+                  background: focusedIndex === i ? '#444' : '#222',
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 12px #0008',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '16px',
+                  cursor: 'pointer',
+                  outline: focusedIndex === i ? '2px solid #fff' : 'none'
+                }}
+                onClick={() => handleEpisodeClick(bolum.url)}
               >
-                <img
-                  src={bolum.logo}
-                  alt={bolum['tvg-name'] || bolum.name}
-                  style={{
-                    width: '90px',
-                    height: '130px',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                    marginBottom: '12px',
-                    background: '#333'
-                  }}
-                  onError={e => { e.target.style.display = 'none'; }}
-                />
+                {bolum.logo && (
+                  <img
+                    src={bolum.logo}
+                    alt={bolum['tvg-name'] || bolum.name}
+                    style={{
+                      width: '90px',
+                      height: '130px',
+                      objectFit: 'cover',
+                      borderRadius: '8px',
+                      marginBottom: '12px',
+                      background: '#333'
+                    }}
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                )}
                 <div style={{fontWeight:'bold', textAlign:'center', fontSize:'15px'}}>
                   {bolum.title}
                 </div>
-                <div style={{color:'#bbb', fontSize:'13px', textAlign:'center', marginTop:'4px'}}>
-                  {bolum.seasonEpisode}
-                </div>
+                {bolum.seasonEpisode && (
+                  <div style={{color:'#bbb', fontSize:'13px', textAlign:'center', marginTop:'4px'}}>
+                    {bolum.seasonEpisode}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${columns}, minmax(180px, 1fr))`,
-          gap: '24px'
-        }}>
-          {Object.entries(tvgGroups).map(([tvgName, episodes], i) => (
-            <div
-              key={i}
+        <>
+          <div style={{display:'flex', alignItems:'center', marginBottom:'24px'}}>
+            <input
+              type="text"
+              placeholder="Dizi ara..."
+              value={searchTerm}
+              onChange={handleSearchChange}
               style={{
+                padding: '10px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '16px',
+                width: '320px',
+                maxWidth: '90vw',
                 background: '#222',
-                borderRadius: '12px',
-                boxShadow: '0 2px 12px #0008',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                padding: '7px',
-                cursor: 'pointer'
+                color: '#fff',
+                boxShadow: '0 2px 8px #0004',
+                marginLeft: '24px',
               }}
-              onClick={() => navigate(`/platform/${encodeURIComponent(platform.name)}/${encodeURIComponent(tvgName)}`, {
-                state: { platform, series: tvgName, episodes }
-              })}
-            >
-              <img
-                src={episodes[0].logo}
-                alt={tvgName}
+            />
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${columns}, minmax(180px, 1fr))`,
+            gap: '24px'
+          }}>
+            {Object.entries(filteredTvgGroups).map(([tvgName, episodes], i) => (
+              <div
+                key={tvgName}
+                ref={(el) => (itemRefs.current[i] = el)}
+                tabIndex={0}
                 style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  borderRadius: '8px',
-                  marginBottom: '12px',
-                  background: '#333'
+                  background: focusedIndex === i ? '#444' : '#222',
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 12px #0008',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '7px',
+                  cursor: 'pointer',
+                  outline: focusedIndex === i ? '2px solid #fff' : 'none'
                 }}
-                onError={e => { e.target.style.display = 'none'; }}
-              />
-              <div style={{fontWeight:'bold', textAlign:'center', fontSize:'16px'}}>
-                {tvgName}
+                onClick={() => handleSeriesClick(tvgName, episodes)}
+              >
+                {episodes[0]?.logo && (
+                  <img
+                    src={episodes[0].logo}
+                    alt={tvgName}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      borderRadius: '8px',
+                      marginBottom: '12px',
+                      background: '#333'
+                    }}
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                )}
+                <div style={{fontWeight:'bold', textAlign:'center', fontSize:'16px'}}>
+                  {tvgName}
+                </div>
               </div>
-              {/* Alt başlık kaldırıldı */}
-              {/* <div style={{color:'#bbb', fontSize:'13px', textAlign:'center', marginTop:'4px'}}>
-                {episodes[0].title}
-              </div> */}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

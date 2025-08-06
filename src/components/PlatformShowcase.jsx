@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const platforms = [
@@ -133,13 +133,89 @@ export function parseM3U(m3uContent) {
 
 export default function PlatformShowcase({ onBack }) {
 	const [hovered, setHovered] = useState(null);
+	const [focusedIdx, setFocusedIdx] = useState(0);
 	const navigate = useNavigate();
+	const gridRef = useRef(null);
 
 	function handlePlatformClick(platform) {
 		navigate(`/platform/${encodeURIComponent(platform.name)}`, {
 			state: { platform }
 		});
 	}
+
+	// Uzaktan kumanda desteği (ok tuşları ve enter)
+	useEffect(() => {
+		const getColumns = () => {
+			if (window.innerWidth < 600) return 1;
+    		if (window.innerWidth < 900) return 2;
+    		if (window.innerWidth < 1400) return 3;
+    		if (window.innerWidth < 1800) return 4;
+    		return 5;
+		};
+
+		function handleKeyDown(e) {
+			// Input veya textarea odaklanmışsa klavye olaylarını atla
+			if (
+				document.activeElement &&
+				(document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
+			) return;
+
+			const columns = getColumns();
+
+			// Rakam tuşları ile hızlı geçiş (1-9)
+			if (/^[1-9]$/.test(e.key)) {
+				const idx = parseInt(e.key, 10) - 1;
+				if (idx < platforms.length) setFocusedIdx(idx);
+				e.preventDefault();
+				return;
+			}
+
+			if (e.key === "ArrowRight" || (e.key === "Tab" && !e.shiftKey)) {
+				setFocusedIdx(i => {
+					const next = i + 1;
+					return next < platforms.length ? next : i;
+				});
+				e.preventDefault();
+			} else if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
+				setFocusedIdx(i => {
+					const prev = i - 1;
+					return prev >= 0 ? prev : i;
+				});
+				e.preventDefault();
+			} else if (e.key === "ArrowDown" || e.key === "PageDown") {
+				setFocusedIdx(i => {
+					const next = i + columns;
+					return next < platforms.length ? next : i;
+				});
+				e.preventDefault();
+			} else if (e.key === "ArrowUp" || e.key === "PageUp") {
+				setFocusedIdx(i => {
+					const prev = i - columns;
+					return prev >= 0 ? prev : i;
+				});
+				e.preventDefault();
+			} else if (e.key === "Home") {
+				setFocusedIdx(0);
+				e.preventDefault();
+			} else if (e.key === "End") {
+				setFocusedIdx(platforms.length - 1);
+				e.preventDefault();
+			} else if (e.key === "Enter" || e.key === "OK") {
+				handlePlatformClick(platforms[focusedIdx]);
+				e.preventDefault();
+			} else if (e.key === "Escape") {
+				onBack && onBack();
+				e.preventDefault();
+			}
+		}
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [focusedIdx, platforms, onBack]);
+
+	// Otomatik focus için
+	useEffect(() => {
+		setHovered(focusedIdx);
+	}, [focusedIdx]);
 
 	return (
 		<div
@@ -175,6 +251,7 @@ export default function PlatformShowcase({ onBack }) {
 			</button>
 			{/* Platform Grid */}
 			<div
+				ref={gridRef}
 				style={{
 					display: 'grid',
 					gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -190,11 +267,13 @@ export default function PlatformShowcase({ onBack }) {
 					<div
 						key={p.name}
 						style={{
-							background: '#181818',
+							background: hovered === idx || focusedIdx === idx
+								? '#232323'
+								: '#181818',
 							borderRadius: '16px',
 							boxShadow:
-								hovered === idx
-									? '0 0 24px #e50914'
+								hovered === idx || focusedIdx === idx
+									? '0 0 24px #febd59'
 									: '0 2px 16px #0005',
 							width: '259px',
 							height: '145px',
@@ -203,8 +282,10 @@ export default function PlatformShowcase({ onBack }) {
 							justifyContent: 'center',
 							position: 'relative',
 							cursor: 'pointer',
-							transition: 'box-shadow 0.2s',
+							transition: 'box-shadow 0.2s, background 0.2s',
+							outline: focusedIdx === idx ? '2px solid #febd59' : 'none'
 						}}
+						tabIndex={0}
 						onMouseEnter={() => setHovered(idx)}
 						onMouseLeave={() => setHovered(null)}
 						onClick={() => handlePlatformClick(p)}
@@ -222,7 +303,7 @@ export default function PlatformShowcase({ onBack }) {
 								position: 'relative',
 							}}
 						/>
-						{hovered === idx && (
+						{(hovered === idx || focusedIdx === idx) && (
 							<video
 								src={p.video}
 								autoPlay

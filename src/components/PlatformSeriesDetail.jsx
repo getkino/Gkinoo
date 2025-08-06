@@ -2,6 +2,9 @@ import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import SimpleHlsPlayer from './SimpleHlsPlayer';
 
+// TMDB API anahtarınızı buraya ekleyin
+const TMDB_API_KEY = '9fbeefd9c72e02a5779273e36fd769a5';
+
 export default function PlatformSeriesDetail() {
   const { platformName, seriesName } = useParams();
   const location = useLocation();
@@ -9,6 +12,8 @@ export default function PlatformSeriesDetail() {
   const { platform, episodes } = location.state || {};
   const [columns, setColumns] = useState(getColumns());
   const [playerUrl, setPlayerUrl] = useState(null);
+  const [tmdbData, setTmdbData] = useState(null);
+  const [tmdbLoading, setTmdbLoading] = useState(true);
 
   function getColumns() {
     if (window.innerWidth < 600) return 2;
@@ -26,26 +31,118 @@ export default function PlatformSeriesDetail() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // TMDB'den dizi verisi çek
+  useEffect(() => {
+    async function fetchTmdb() {
+      setTmdbLoading(true);
+      try {
+        const decodedName = decodeURIComponent(seriesName);
+        const searchRes = await fetch(
+          `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(decodedName)}&language=tr`
+        );
+        const searchJson = await searchRes.json();
+        let show = null;
+        if (searchJson.results && searchJson.results.length > 0) {
+          show = searchJson.results.find(
+            r =>
+              r.name?.toLowerCase() === decodedName.toLowerCase() ||
+              r.original_name?.toLowerCase() === decodedName.toLowerCase()
+          ) || searchJson.results[0];
+        }
+        if (show) {
+          const detailRes = await fetch(
+            `https://api.themoviedb.org/3/tv/${show.id}?api_key=${TMDB_API_KEY}&language=tr&append_to_response=credits`
+          );
+          const detailJson = await detailRes.json();
+          setTmdbData(detailJson);
+        } else {
+          setTmdbData(null);
+        }
+      } catch {
+        setTmdbData(null);
+      }
+      setTmdbLoading(false);
+    }
+    fetchTmdb();
+  }, [seriesName]);
+
   return (
-    <div style={{background:'#111', minHeight:'100vh', color:'#fff', padding:'32px'}}>
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          position: 'absolute',
-          top: 24,
-          left: 24,
-          background: 'rgba(0,0,0,0.7)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '50%',
-          padding: '12px',
-          fontSize: '22px',
-          cursor: 'pointer',
-          zIndex: 1001
-        }}
-      >
-        <span className="material-icons">arrow_back</span>
-      </button>
+    <div style={{background:'#111', minHeight:'100vh', color:'#fff', padding:'32px', position:'relative'}}>
+      {/* TMDB Dizi Detayı ve back butonu yan yana */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '18px',
+        marginBottom: '32px'
+      }}>
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            background: 'rgba(0,0,0,0.7)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '12px',
+            fontSize: '22px',
+            cursor: 'pointer',
+            zIndex: 1,
+            marginRight: '8px',
+            alignSelf: 'flex-start'
+          }}
+        >
+          <span className="material-icons">arrow_back</span>
+        </button>
+        {tmdbLoading ? (
+          <div>Bilgiler yükleniyor...</div>
+        ) : tmdbData ? (
+          <>
+            <img
+              src={tmdbData.poster_path ? `https://image.tmdb.org/t/p/w185${tmdbData.poster_path}` : ''}
+              alt={tmdbData.name}
+              style={{
+                width: '180px',
+                height: '240px',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                background: '#222',
+                marginRight: '18px'
+              }}
+              onError={e => { e.target.style.display = 'none'; }}
+            />
+            <div>
+              <div style={{fontWeight:'bold', fontSize:'22px', marginBottom:'4px'}}>{tmdbData.name}</div>
+              <div style={{color:'#ccc', fontSize:'15px', marginBottom:'2px'}}>
+                {tmdbData.genres?.map(g => g.name).join(', ')} • <span style={{color:'#ffd700'}}>★ {tmdbData.vote_average?.toFixed(2)}</span>
+              </div>
+              <div style={{fontSize:'15px', marginBottom:'8px'}}>
+                {tmdbData.overview}
+              </div>
+              <div style={{fontSize:'15px', marginBottom:'2px'}}>
+                <b>Yayın Yılı:</b> {tmdbData.first_air_date?.slice(0,4)}
+              </div>
+              <div style={{fontSize:'15px', marginBottom:'2px'}}>
+                <b>Yayıncı:</b> {
+                  tmdbData.networks?.filter(n =>
+                    n.origin_country === 'TR'
+                  ).map(n => n.name).join(', ') ||
+                  tmdbData.networks?.map(n => n.name).join(', ')
+                }
+              </div>
+              <div style={{fontSize:'15px', marginBottom:'2px'}}>
+                <b>Oyuncular:</b> {tmdbData.credits?.cast?.slice(0,6).map(a => a.name).join(', ')}
+              </div>
+              <div style={{fontSize:'15px', marginBottom:'2px'}}>
+                <b>TMDB'de Görüntüle:</b>{' '}
+                <a href={`https://www.themoviedb.org/tv/${tmdbData.id}`} target="_blank" rel="noopener noreferrer" style={{color:'#3af'}}>
+                  TMDB'de Görüntüle
+                </a>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div>Dizi bilgisi bulunamadı.</div>
+        )}
+      </div>
       <h2 style={{marginBottom:'32px'}}>
         {decodeURIComponent(platformName)} / {decodeURIComponent(seriesName)}
       </h2>
