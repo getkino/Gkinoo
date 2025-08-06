@@ -281,13 +281,14 @@ export default function PlatformDetail() {
                 style={{
                   background: focusedIndex === i ? '#444' : '#222',
                   borderRadius: '12px',
-                  boxShadow: '0 2px 12px #0008',
+                  boxShadow: focusedIndex === i ? '0 0 24px #febd59' : '0 2px 12px #0008',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   padding: '16px',
                   cursor: 'pointer',
-                  outline: focusedIndex === i ? '2px solid #fff' : 'none'
+                  transition: 'box-shadow 0.2s, background 0.2s',
+                  outline: 'none'
                 }}
                 onClick={() => handleEpisodeClick(bolum.url)}
               >
@@ -353,13 +354,14 @@ export default function PlatformDetail() {
                 style={{
                   background: focusedIndex === i ? '#444' : '#222',
                   borderRadius: '12px',
-                  boxShadow: '0 2px 12px #0008',
+                  boxShadow: focusedIndex === i ? '0 0 24px #febd59' : '0 2px 12px #0008',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   padding: '7px',
                   cursor: 'pointer',
-                  outline: focusedIndex === i ? '2px solid #fff' : 'none'
+                  transition: 'box-shadow 0.2s, background 0.2s',
+                  outline: 'none'
                 }}
                 onClick={() => handleSeriesClick(tvgName, episodes)}
               >
