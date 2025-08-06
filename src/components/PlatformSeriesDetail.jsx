@@ -23,6 +23,7 @@ export default function PlatformSeriesDetail() {
   const [tmdbData, setTmdbData] = useState(null);
   const [tmdbLoading, setTmdbLoading] = useState(true);
   const [watchProviders, setWatchProviders] = useState(null);
+  const [certification, setCertification] = useState(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const itemRefs = useRef([]);
 
@@ -130,10 +131,15 @@ export default function PlatformSeriesDetail() {
         }
         if (show) {
           const detailRes = await fetch(
-            `https://api.themoviedb.org/3/tv/${show.id}?api_key=${TMDB_API_KEY}&language=tr&append_to_response=credits`
+            `https://api.themoviedb.org/3/tv/${show.id}?api_key=${TMDB_API_KEY}&language=tr&append_to_response=credits,content_ratings`
           );
           const detailJson = await detailRes.json();
           setTmdbData(detailJson);
+
+          // Sertifikasyon bilgisini ayarla
+          const trCertification = detailJson.content_ratings?.results?.find(r => r.iso_3166_1 === 'TR');
+          const usCertification = detailJson.content_ratings?.results?.find(r => r.iso_3166_1 === 'US');
+          setCertification(trCertification?.rating || usCertification?.rating || null);
 
           // Akış servislerini çek
           const watchRes = await fetch(
@@ -144,10 +150,12 @@ export default function PlatformSeriesDetail() {
         } else {
           setTmdbData(null);
           setWatchProviders(null);
+          setCertification(null);
         }
       } catch {
         setTmdbData(null);
         setWatchProviders(null);
+        setCertification(null);
       }
       setTmdbLoading(false);
     }
@@ -202,7 +210,8 @@ export default function PlatformSeriesDetail() {
             <div>
               <div style={{fontWeight:'bold', fontSize:'22px', marginBottom:'4px'}}>{tmdbData.name}</div>
               <div style={{color:'#ccc', fontSize:'15px', marginBottom:'2px'}}>
-                {tmdbData.genres?.map(g => g.name).join(', ')} • <span style={{color:'#ffd700'}}>★ {tmdbData.vote_average?.toFixed(2)}</span>
+                {tmdbData.genres?.map(g => g.name).join(', ')} • <span style={{color:'#ffd700', background:'rgba(255,215,0,0.1)', padding:'3px 8px', borderRadius:'6px', fontWeight:'500', fontSize:'13px'}}>★ {tmdbData.vote_average?.toFixed(1)}</span>
+                {certification && <> • <span style={{color:'#ff6b6b', background:'rgba(255,107,107,0.1)', padding:'3px 8px', borderRadius:'6px', fontSize:'13px', fontWeight:'500'}}>{certification}</span></>}
               </div>
               {tmdbData.overview && (
                 <div style={{fontSize:'15px', marginBottom:'8px'}}>
@@ -235,7 +244,21 @@ export default function PlatformSeriesDetail() {
               )}
               {tmdbData.credits?.cast?.length > 0 && (
                 <div style={{fontSize:'15px', marginBottom:'2px'}}>
-                  <b>Oyuncular:</b> {tmdbData.credits.cast.slice(0,6).map(a => a.name).join(', ')}
+                  <b>Oyuncular:</b> {tmdbData.credits.cast.slice(0,6).map((actor, index) => (
+                    <span key={actor.id}>
+                      {index > 0 && ', '}
+                      <a 
+                        href={`https://www.themoviedb.org/person/${actor.id}-${actor.name.toLowerCase().replace(/\s+/g, '-')}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        style={{color:'#3af', textDecoration:'none'}}
+                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                      >
+                        {actor.name}
+                      </a>
+                    </span>
+                  ))}
                 </div>
               )}
               <div style={{fontSize:'15px', marginBottom:'2px'}}>

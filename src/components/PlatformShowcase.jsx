@@ -69,9 +69,9 @@ const platforms = [
 		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u',
 	},
 	{
-		name: 'Star+',
-		logo: '/platformlar/logo/star.png',
-		video: '/platformlar/logo/video/star.mp4',
+		name: 'TOD TV',
+		logo: '/platformlar/logo/TOD TV.png',
+		video: '/platformlar/logo/video/gain.mp4',
 		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u',
 	},
 	{
@@ -150,7 +150,7 @@ export default function PlatformShowcase({ onBack }) {
     		if (window.innerWidth < 900) return 2;
     		if (window.innerWidth < 1400) return 3;
     		if (window.innerWidth < 1800) return 4;
-    		return 5;
+			return 4;
 		};
 
 		function handleKeyDown(e) {
