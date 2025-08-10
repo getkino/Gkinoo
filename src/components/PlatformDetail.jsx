@@ -50,7 +50,7 @@ export default function PlatformDetail() {
   );
 
   // Callbacks
-  const handleBackClick = useCallback(() => navigate('/'), [navigate]);
+  const handleBackClick = useCallback(() => navigate('/platform'), [navigate]);
   
   const handleSeriesBackClick = useCallback(() => {
     setSelectedSeries(null);

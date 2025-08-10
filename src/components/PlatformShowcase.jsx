@@ -96,7 +96,7 @@ const platforms = [
 		name: 'Diğer',
 		logo: '/platformlar/logo/diğer.png',
 		video: '/platformlar/logo/video/gain.mp4',
-		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u',
+		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/denemem%20oldu.m3u8',
 	},
 ];
 

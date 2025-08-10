@@ -5,6 +5,8 @@ const IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 
 const cache = {};
 
+const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+
 export async function getTmdbSeriesInfo(query) {
   if (cache[query]) return cache[query];
 

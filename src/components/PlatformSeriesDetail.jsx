@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import SimpleHlsPlayer from './SimpleHlsPlayer';
 
 // TMDB API anahtarınızı buraya ekleyin
-const TMDB_API_KEY = '9fbeefd9c72e02a5779273e36fd769a5';
+const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
 const getColumns = () => {
   if (window.innerWidth < 600) return 2;
@@ -168,112 +168,190 @@ export default function PlatformSeriesDetail() {
       <div style={{
         display: 'flex',
         alignItems: 'flex-start',
-        gap: '18px',
-        marginBottom: '32px'
+        gap: '32px',
+        marginBottom: '40px',
+        background: tmdbData?.backdrop_path 
+          ? `url(https://image.tmdb.org/t/p/original${tmdbData.backdrop_path})`
+          : 'linear-gradient(90deg, #181818 60%, #232323 100%)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'local',
+        borderRadius: '18px',
+        boxShadow: '0 4px 32px #0007',
+        padding: '28px 36px 28px 24px',
+        position: 'relative',
+        minHeight: '260px',
+        overflow: 'hidden'
       }}>
+        {/* Gradient overlay for text readability */}
+        {tmdbData?.backdrop_path && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.8) 30%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.2) 100%)',
+            borderRadius: '18px',
+            zIndex: 0
+          }} />
+        )}
+        
         <button
           onClick={handleBackClick}
           style={{
-            background: 'rgba(0,0,0,0.7)',
+            background: 'rgba(0,0,0,0.8)',
             color: '#fff',
             border: 'none',
             borderRadius: '50%',
             padding: '12px',
             fontSize: '22px',
             cursor: 'pointer',
-            zIndex: 1,
+            zIndex: 2,
             marginRight: '8px',
-            alignSelf: 'flex-start'
+            alignSelf: 'flex-start',
+            position: 'relative'
           }}
         >
           <span className="material-icons">arrow_back</span>
         </button>
         {tmdbLoading ? (
-          <div>Bilgiler yükleniyor...</div>
+          <div style={{color:'#febd59', fontWeight:'bold', fontSize:'18px', zIndex: 1, position: 'relative'}}>Bilgiler yükleniyor...</div>
         ) : tmdbData ? (
           <>
             {tmdbData.poster_path && (
               <img
-                src={`https://image.tmdb.org/t/p/w185${tmdbData.poster_path}`}
+                src={`https://image.tmdb.org/t/p/w300${tmdbData.poster_path}`}
                 alt={tmdbData.name}
                 style={{
-                  width: '180px',
-                  height: '240px',
+                  width: '200px',
+                  height: '270px',
                   objectFit: 'cover',
-                  borderRadius: '12px',
+                  borderRadius: '16px',
                   background: '#222',
-                  marginRight: '18px'
+                  marginRight: '28px',
+                  boxShadow: '0 4px 24px #000a',
+                  zIndex: 1,
+                  position: 'relative'
                 }}
                 onError={e => { e.target.style.display = 'none'; }}
               />
             )}
-            <div>
-              <div style={{fontWeight:'bold', fontSize:'22px', marginBottom:'4px'}}>{tmdbData.name}</div>
-              <div style={{color:'#ccc', fontSize:'15px', marginBottom:'2px'}}>
-                {tmdbData.genres?.map(g => g.name).join(', ')} • <span style={{color:'#ffd700', background:'rgba(255,215,0,0.1)', padding:'3px 8px', borderRadius:'6px', fontWeight:'500', fontSize:'13px'}}>★ {tmdbData.vote_average?.toFixed(1)}</span>
-                {certification && <> • <span style={{color:'#ff6b6b', background:'rgba(255,107,107,0.1)', padding:'3px 8px', borderRadius:'6px', fontSize:'13px', fontWeight:'500'}}>{certification}</span></>}
+            <div style={{flex: 1, minWidth: 0, zIndex: 1, position: 'relative'}}>
+              <div style={{fontWeight:'bold', fontSize:'2rem', marginBottom:'8px', color:'#febd59', letterSpacing: '0.5px', textShadow:'0 2px 12px #000'}}>
+                {tmdbData.name}
+              </div>
+              <div style={{color:'#fff', fontSize:'1.1rem', marginBottom:'10px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap'}}>
+                <span style={{textShadow:'0 2px 8px #000'}}>{tmdbData.genres?.map(g => g.name).join(', ')}</span>
+                <span style={{color:'#ffd700', background:'rgba(255,215,0,0.25)', padding:'4px 10px', borderRadius:'8px', fontWeight:'600', fontSize:'1rem', display:'flex', alignItems:'center', gap:'4px', backdropFilter:'blur(6px)', border:'1px solid rgba(255,215,0,0.3)'}}>
+                  <span className="material-icons" style={{fontSize:'18px', verticalAlign:'middle'}}>star</span>
+                  {tmdbData.vote_average?.toFixed(1)}
+                </span>
+                {certification && (
+                  <span style={{color:'#ff6b6b', background:'rgba(255,107,107,0.25)', padding:'4px 10px', borderRadius:'8px', fontSize:'1rem', fontWeight:'600', backdropFilter:'blur(6px)', border:'1px solid rgba(255,107,107,0.3)'}}>
+                    {certification}
+                  </span>
+                )}
               </div>
               {tmdbData.overview && (
-                <div style={{fontSize:'15px', marginBottom:'8px'}}>
+                <div style={{
+                  fontSize:'1.08rem',
+                  marginBottom:'14px',
+                  color:'#fff',
+                  lineHeight: 1.6,
+                  maxHeight: '90px',
+                  overflow: 'auto',
+                  textShadow:'0 2px 8px #000'
+                }}>
                   {tmdbData.overview}
                 </div>
               )}
-              {tmdbData.first_air_date && (
-                <div style={{fontSize:'15px', marginBottom:'2px'}}>
-                  <b>Yayın Yılı:</b> {tmdbData.first_air_date.slice(0,4)}
-                </div>
-              )}
-              {tmdbData.status && (
-                <div style={{fontSize:'15px', marginBottom:'2px'}}>
-                  <b>Durum:</b> {
-                    tmdbData.status === 'Returning Series' ? 'Devam Ediyor' :
-                    tmdbData.status === 'Ended' ? 'Sona Erdi' :
-                    tmdbData.status === 'Canceled' ? 'İptal Edildi' :
-                    tmdbData.status === 'In Production' ? 'Yapım Aşamasında' :
-                    tmdbData.status
-                  }
-                </div>
-              )}
-              {watchProviders && (watchProviders.TR?.flatrate?.length > 0 || watchProviders.US?.flatrate?.length > 0) && (
-                <div style={{fontSize:'15px', marginBottom:'2px'}}>
-                  <b>Akış:</b> {
-                    watchProviders.TR?.flatrate?.map(p => p.provider_name).join(', ') ||
-                    watchProviders.US?.flatrate?.map(p => p.provider_name).join(', ')
-                  }
-                </div>
-              )}
+              <div style={{display:'flex', gap:'18px', flexWrap:'wrap', marginBottom:'10px'}}>
+                {tmdbData.first_air_date && (
+                  <div style={{fontSize:'1rem', textShadow:'0 2px 8px #000', color:'#fff'}}>
+                    <b style={{color:'#febd59'}}>Yayın Yılı:</b> {tmdbData.first_air_date.slice(0,4)}
+                  </div>
+                )}
+                {tmdbData.status && (
+                  <div style={{fontSize:'1rem', textShadow:'0 2px 8px #000', color:'#fff'}}>
+                    <b style={{color:'#febd59'}}>Durum:</b> {
+                      tmdbData.status === 'Returning Series' ? 'Devam Ediyor' :
+                      tmdbData.status === 'Ended' ? 'Sona Erdi' :
+                      tmdbData.status === 'Canceled' ? 'İptal Edildi' :
+                      tmdbData.status === 'In Production' ? 'Yapım Aşamasında' :
+                      tmdbData.status
+                    }
+                  </div>
+                )}
+                {watchProviders && (watchProviders.TR?.flatrate?.length > 0 || watchProviders.US?.flatrate?.length > 0) && (
+                  <div style={{fontSize:'1rem', textShadow:'0 2px 8px #000', color:'#fff'}}>
+                    <b style={{color:'#febd59'}}>Akış:</b> {
+                      watchProviders.TR?.flatrate?.map(p => p.provider_name).join(', ') ||
+                      watchProviders.US?.flatrate?.map(p => p.provider_name).join(', ')
+                    }
+                  </div>
+                )}
+              </div>
               {tmdbData.credits?.cast?.length > 0 && (
-                <div style={{fontSize:'15px', marginBottom:'2px'}}>
-                  <b>Oyuncular:</b> {tmdbData.credits.cast.slice(0,6).map((actor, index) => (
-                    <span key={actor.id}>
-                      {index > 0 && ', '}
-                      <a 
-                        href={`https://www.themoviedb.org/person/${actor.id}-${actor.name.toLowerCase().replace(/\s+/g, '-')}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        style={{color:'#3af', textDecoration:'none'}}
-                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                      >
-                        {actor.name}
-                      </a>
-                    </span>
-                  ))}
+                <div style={{fontSize:'1rem', marginBottom:'8px', display:'flex', flexDirection:'column', gap:'6px'}}>
+                  <b style={{color:'#febd59', textShadow:'0 2px 8px #000'}}>Oyuncular:</b>
+                  <div style={{display:'flex', flexWrap:'wrap', gap:'18px', marginTop:'8px'}}>
+                    {tmdbData.credits.cast.slice(0,6).map((actor, index) => (
+                      <div key={actor.id} style={{
+                        display:'flex',
+                        alignItems:'center',
+                        gap:'8px',
+                        background:'rgba(0,0,0,0.7)',
+                        borderRadius:'8px',
+                        padding:'4px 10px 4px 4px',
+                        boxShadow:'0 2px 12px #000',
+                        backdropFilter:'blur(8px)',
+                        border:'1px solid rgba(255,255,255,0.1)'
+                      }}>
+                        {actor.profile_path && (
+                          <img
+                            src={`https://image.tmdb.org/t/p/w92${actor.profile_path}`}
+                            alt={actor.name}
+                            style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              background: '#222',
+                              border: '1.5px solid #febd59'
+                            }}
+                            onError={e => { e.target.style.display = 'none'; }}
+                          />
+                        )}
+                        <a 
+                          href={`https://www.themoviedb.org/person/${actor.id}-${actor.name.toLowerCase().replace(/\s+/g, '-')}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          style={{color:'#febd59', textDecoration:'none', fontWeight:'500', fontSize:'1rem', textShadow:'0 1px 4px #000'}}
+                          onMouseEnter={e => e.target.style.textDecoration = 'underline'}
+                          onMouseLeave={e => e.target.style.textDecoration = 'none'}
+                        >
+                          {actor.name}
+                        </a>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-              <div style={{fontSize:'15px', marginBottom:'2px'}}>
-                <b>TMDB'de Görüntüle:</b>{' '}
-                <a href={`https://www.themoviedb.org/tv/${tmdbData.id}`} target="_blank" rel="noopener noreferrer" style={{color:'#3af'}}>
+              <div style={{fontSize:'1rem', marginTop:'10px', textShadow:'0 2px 8px #000', color:'#fff'}}>
+                <b style={{color:'#febd59'}}>TMDB'de Görüntüle:</b>{' '}
+                <a href={`https://www.themoviedb.org/tv/${tmdbData.id}`} target="_blank" rel="noopener noreferrer" style={{color:'#3af', fontWeight:'bold'}}>
                   TMDB'de Görüntüle
                 </a>
               </div>
             </div>
           </>
         ) : (
-          <div>Dizi bilgisi bulunamadı.</div>
+          <div style={{color:'#febd59', fontWeight:'bold', fontSize:'18px', zIndex: 1, position: 'relative'}}>Dizi bilgisi bulunamadı.</div>
         )}
       </div>
-      <h2 style={{marginBottom:'32px'}}>
+      <h2 style={{marginBottom:'32px', color:'#febd59', fontWeight:'bold'}}>
         {decodeURIComponent(platformName)} / {decodeURIComponent(seriesName)}
       </h2>
       <div style={{
