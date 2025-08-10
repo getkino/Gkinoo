@@ -242,8 +242,7 @@ export default function PlatformSeriesDetail() {
               <div style={{fontWeight:'bold', fontSize:'2rem', marginBottom:'8px', color:'#febd59', letterSpacing: '0.5px', textShadow:'0 2px 12px #000'}}>
                 {tmdbData.name}
               </div>
-              <div style={{color:'#fff', fontSize:'1.1rem', marginBottom:'10px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap'}}>
-                <span style={{textShadow:'0 2px 8px #000'}}>{tmdbData.genres?.map(g => g.name).join(', ')}</span>
+              <div style={{color:'#fff', fontSize:'1.1rem', marginBottom:'10px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap'}}> 
                 <span style={{color:'#ffd700', background:'rgba(255,215,0,0.25)', padding:'4px 10px', borderRadius:'8px', fontWeight:'600', fontSize:'1rem', display:'flex', alignItems:'center', gap:'4px', backdropFilter:'blur(6px)', border:'1px solid rgba(255,215,0,0.3)'}}>
                   <span className="material-icons" style={{fontSize:'18px', verticalAlign:'middle'}}>star</span>
                   {tmdbData.vote_average?.toFixed(1)}
@@ -253,6 +252,7 @@ export default function PlatformSeriesDetail() {
                     {certification}
                   </span>
                 )}
+                <span style={{textShadow:'0 2px 8px #000'}}>{tmdbData.genres?.map(g => g.name).join(', ')}</span>
               </div>
               {tmdbData.overview && (
                 <div style={{
