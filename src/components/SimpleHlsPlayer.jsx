@@ -7,6 +7,12 @@ const LANG_MAP = {
   ja: 'Japonca', ko: 'Korece', fa: 'Farsça', zh: 'Çince',
 };
 
+// EKLENDİ: Tema rengi sabitleri (takım rengi)
+const TEAM = '#febd59';
+const TEAM_DARK = '#e89d3a';
+const TEAM_GRAD = `linear-gradient(to right, ${TEAM}, ${TEAM_DARK})`;
+const TEAM_GRAD_RGBA = `linear-gradient(to right, rgba(254,189,89,0.8), rgba(232,157,58,0.8))`;
+
 function formatTime(seconds) {
   if (isNaN(seconds)) return '00:00:00';
   const h = Math.floor(seconds / 3600);
@@ -45,6 +51,15 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
   const [progressBarVisible, setProgressBarVisible] = useState(true);
   const [notificationTimer, setNotificationTimer] = useState(null);
   const [focusedChannelIndex, setFocusedChannelIndex] = useState(0);
+
+  // EKLENDİ: Android TV tespiti için ref
+  const isAndroidTv = useRef(false);
+
+  // EKLENDİ: Android TV tespiti
+  useEffect(() => {
+    const ua = navigator.userAgent || '';
+    isAndroidTv.current = /Android\s?TV|SMART-TV|Tizen|Web0S|WebOS|BRAVIA|AFT(M|T|S)/i.test(ua);
+  }, []);
 
   const enterFullscreen = () => {
     const container = document.getElementById('player-container');
@@ -238,7 +253,7 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
     setSelectedAudio(newAudioIndex);
     const audioName = audioTracks[newAudioIndex]?.lang ? LANG_MAP[audioTracks[newAudioIndex].lang] || audioTracks[newAudioIndex].lang : 'Bilinmeyen';
     setSelectedButton(null);
-    showNotification(`Ses: ${audioName}`);
+    notify('audio', { label: audioName });
     setShowAudioOptions(false);
   };
 
@@ -260,7 +275,7 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
     }
     const subtitleName = newSubtitleIndex === -1 ? 'Kapalı' : (subtitleTracks[newSubtitleIndex]?.lang ? LANG_MAP[subtitleTracks[newSubtitleIndex].lang] || subtitleTracks[newSubtitleIndex].lang : 'Bilinmeyen');
     setSelectedButton(null);
-    showNotification(`Altyazı: ${subtitleName}`);
+    notify('subtitle', { label: subtitleName });
     setShowSubtitleOptions(false);
   };
 
@@ -272,14 +287,51 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
     hls.currentLevel = levelIndex;
     setSelectedQuality(levelIndex);
     const qualityName = levelIndex === -1 ? 'Otomatik' : `${qualityLevels[levelIndex]?.height || 'Bilinmeyen'}p`;
-    showNotification(`Kalite: ${qualityName}`);
+    notify('quality', { label: qualityName });
     setShowQualityOptions(false);
+  };
+
+  // Hız değiştir (popover item tıklaması için)
+  const handleSpeedSelect = (rate) => {
+    setPlaybackRate(rate);
+    if (videoRef.current) videoRef.current.playbackRate = rate;
+    setShowSpeedOptions(false);
+    setShowAudioOptions(false);
+    setShowSubtitleOptions(false);
+    setShowQualityOptions(false);
+    showNotification(`Hız: ${rate}x`);
   };
 
   const showNotification = (msg) => {
     setNotification(msg);
     setNotificationVisible(true);
     setTimeout(() => setNotificationVisible(false), 2000);
+  };
+
+  // EKLENDİ: Bildirimleri tek noktadan şık biçimlendirme
+  const fmt = {
+    seconds: (s) => `${Math.round(s)} sn`,
+    volume: (v) => `%${Math.round((v ?? 0) * 100)}`
+  };
+  const notify = (type, data = {}) => {
+    let msg = '';
+    switch (type) {
+      case 'play': msg = 'Oynatılıyor'; break;
+      case 'pause': msg = 'Duraklatıldı'; break;
+      case 'seek-forward': msg = `${fmt.seconds(data.seconds ?? 30)} ileri sarıldı`; break;
+      case 'seek-backward': msg = `${fmt.seconds(data.seconds ?? 30)} geri sarıldı`; break;
+      case 'volume': msg = `Ses: ${fmt.volume(data.volume)}`; break;
+      case 'mute': msg = data.muted ? 'Sessiz açık' : `Sessiz kapalı • Ses ${fmt.volume(data.volume)}`; break;
+      case 'fs-exit': msg = 'Tam ekrandan çıkıldı'; break;
+      case 'live-seek-block': msg = 'Canlı yayında sarma desteklenmiyor'; break;
+      case 'fit': msg = `Ekran: ${data.mode === 'contain' ? 'Sığdır' : 'Doldur'}`; break;
+      case 'quality': msg = `Kalite: ${data.label}`; break;
+      case 'audio': msg = `Ses: ${data.label}`; break;
+      case 'subtitle': msg = `Altyazı: ${data.label}`; break;
+      case 'back': msg = 'Geri dönüldü'; break;
+      default: msg = data.message || ''; break;
+    }
+    if (msg) showNotification(msg);
   };
 
   const toggleFit = () => {
@@ -295,16 +347,16 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
     if (!video) return;
     if (video.paused) {
       video.play();
-      showNotification('▶ Oynat');
+      notify('play');
     } else {
       video.pause();
-      showNotification('⏸ Duraklat');
+      notify('pause');
     }
   };
 
   const seekForward = () => {
     if (isLive) {
-      showNotification('Canlı yayında ileri sarma yapılamaz');
+      notify('live-seek-block');
       return;
     }
     const video = videoRef.current;
@@ -313,12 +365,12 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
     video.currentTime = newTime;
     setCurrentTime(newTime);
     setProgress((newTime / video.duration) * 100 || 0);
-    showNotification('⏩ 30s ileri');
+    notify('seek-forward', { seconds: 30 });
   };
 
   const seekBackward = () => {
     if (isLive) {
-      showNotification('Canlı yayında geri sarma yapılamaz');
+      notify('live-seek-block');
       return;
     }
     const video = videoRef.current;
@@ -327,12 +379,12 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
     video.currentTime = newTime;
     setCurrentTime(newTime);
     setProgress((newTime / video.duration) * 100 || 0);
-    showNotification('⏪ 30s geri');
+    notify('seek-backward', { seconds: 30 });
   };
 
   const seekTo = (e) => {
     if (isLive) {
-      showNotification('Canlı yayında zaman çubuğu kullanılamaz');
+      notify('live-seek-block');
       return;
     }
     const rect = e.currentTarget.getBoundingClientRect();
@@ -347,10 +399,11 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
     setControlsVisible(true);
     setProgressBarVisible(true);
     clearTimeout(notificationTimer);
+    // TV'de kontroller daha uzun açık kalsın
     setNotificationTimer(setTimeout(() => {
       setControlsVisible(false);
       setProgressBarVisible(false);
-    }, 3000));
+    }, isAndroidTv.current ? 6000 : 3000));
   };
 
   const handleChannelSelect = (channel, index) => {
@@ -364,6 +417,62 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
     const handleKeyDown = (e) => {
       const video = videoRef.current;
       if (!video) return;
+      const k = (e.key || '').toLowerCase();
+      switch (k) {
+        case 'mediaplaypause':
+          e.preventDefault();
+          return togglePlayPause();
+        case 'mediaplay':
+          e.preventDefault();
+          try { video.play(); } catch {}
+          return notify('play');
+        case 'mediapause':
+          e.preventDefault();
+          try { video.pause(); } catch {}
+          return notify('pause');
+        case 'mediafastforward':
+          e.preventDefault();
+          return seekForward();
+        case 'mediarewind':
+          e.preventDefault();
+          return seekBackward();
+        case 'volumeup':
+          e.preventDefault();
+          video.volume = Math.min(video.volume + 0.1, 1);
+          return notify('volume', { volume: video.volume });
+        case 'volumedown':
+          e.preventDefault();
+          video.volume = Math.max(video.volume - 0.1, 0);
+          return notify('volume', { volume: video.volume });
+        case 'volumemute':
+          e.preventDefault();
+          video.muted = !video.muted;
+          return notify('mute', { muted: video.muted, volume: video.volume });
+        case 'backspace':
+        case 'browserback':
+          e.preventDefault();
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+            return notify('fs-exit');
+          }
+          if (typeof onBack === 'function') {
+            onBack();
+            return notify('back');
+          }
+          return;
+        case 'channelup':
+          e.preventDefault();
+          setShowChannelList(true);
+          setFocusedChannelIndex((prev) => Math.max(prev - 1, 0));
+          return;
+        case 'channeldown':
+          e.preventDefault();
+          setShowChannelList(true);
+          setFocusedChannelIndex((prev) => Math.min(prev + 1, Math.max(groupChannels.length - 1, 0)));
+          return;
+        default:
+          break;
+      }
 
       if (showChannelList) {
         if (e.key === 'ArrowDown') {
@@ -382,8 +491,10 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
           e.preventDefault();
         }
       } else {
-        switch (e.key.toLowerCase()) {
+        switch (k) {
           case ' ':
+          case 'enter':
+          case 'select':
             e.preventDefault();
             togglePlayPause();
             break;
@@ -396,38 +507,31 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
           case 'arrowup':
             e.preventDefault();
             video.volume = Math.min(video.volume + 0.1, 1);
-            showNotification(`🔊 Ses: %${Math.round(video.volume * 100)}`);
+            notify('volume', { volume: video.volume });
             break;
           case 'arrowdown':
             e.preventDefault();
             video.volume = Math.max(video.volume - 0.1, 0);
-            showNotification(`🔉 Ses: %${Math.round(video.volume * 100)}`);
+            notify('volume', { volume: video.volume });
             break;
           case 'm':
             e.preventDefault();
             video.muted = !video.muted;
-            showNotification(video.muted ? '🔇 Sessiz' : `🔊 Ses: %${Math.round(video.volume * 100)}`);
-            break;
-          case 'l':
-            e.preventDefault();
-            setShowChannelList(true);
-            showNotification('Bölüm listesi açıldı');
+            notify('mute', { muted: video.muted, volume: video.volume });
             break;
           case 'escape':
             if (document.fullscreenElement) {
               document.exitFullscreen();
-              showNotification('⛔ Tam ekrandan çıkıldı');
-            } else {
-              if (typeof onBack === 'function') {
-                onBack(); // Escape tuşuna basıldığında geri dön
-                showNotification('Geri dönüldü');
-              }
+              notify('fs-exit');
+            } else if (typeof onBack === 'function') {
+              onBack();
+              notify('back');
             }
             break;
+          // ...existing code...
         }
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showChannelList, groupChannels, focusedChannelIndex, onBack]);
@@ -445,10 +549,95 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
     };
   }, [notificationTimer]);
 
-  // Türkçe altyazı var mı kontrolü
+  // EKLENDİ: İlk açılışta otomatik gizleme zamanlayıcısını başlat
+  useEffect(() => {
+    showControls();
+    return () => {
+      if (notificationTimer) clearTimeout(notificationTimer);
+    };
+  }, []); // sadece mount/unmount
+
   const hasTurkishSubtitles = subtitleTracks.some(track => track.lang === 'tr');
-  // Ses parçası sayısı kontrolü
   const hasMultipleAudioTracks = audioTracks.length > 1;
+
+  // Hız seçenekleri
+  const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+
+  // Stil sabitleri (dock, buton, menü)
+  const ui = {
+    dock: {
+      position: 'absolute',
+      bottom: 20,
+      right: 12,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      background: 'rgba(20,20,20,0.6)',
+      backdropFilter: 'blur(8px)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 999,
+      padding: '8px 10px',
+      boxShadow: '0 6px 24px rgba(0,0,0,0.35)',
+      zIndex: 100,
+      opacity: controlsVisible ? 1 : 0,
+      transition: 'opacity 0.5s ease',
+      pointerEvents: controlsVisible ? 'auto' : 'none',
+    },
+    iconBtn: (active) => ({
+      width: 44,
+      height: 44,
+      borderRadius: '50%',
+      border: '1px solid rgba(255,255,255,0.12)',
+      background: active ? TEAM_GRAD : 'rgba(0,0,0,0.5)',
+      // DEĞİŞTİ: grid yerine inline-flex ile tam ortalama
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      color: '#fff',
+      cursor: 'pointer',
+      outline: 'none',
+      transition: 'transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease',
+    }),
+    menu: {
+      position: 'absolute',
+      right: 12,
+      bottom: 72,
+      minWidth: 220,
+      background: 'rgba(20,20,20,0.9)',
+      border: '1px solid rgba(255,255,255,0.12)',
+      borderRadius: 12,
+      overflow: 'hidden',
+      backdropFilter: 'blur(10px)',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+      zIndex: 1000,
+    },
+    menuItem: (selected) => ({
+      padding: '10px 12px',
+      color: '#fff',
+      fontSize: 14,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      cursor: 'pointer',
+      background: selected ? TEAM_GRAD_RGBA : 'transparent',
+      borderBottom: '1px solid rgba(255,255,255,0.06)',
+    }),
+    menuItemIcon: {
+      fontSize: 18,
+      opacity: 0.9,
+    },
+    // EKLENDİ: İkonları dikeyde dengelemek için ortak stil
+    iconGlyph: {
+      fontSize: 22,
+      lineHeight: 1,
+      display: 'inline-block',
+      verticalAlign: 'middle',
+      transform: 'translateY(1px)', // küçük ofset, yamuk görünümü düzeltir
+      pointerEvents: 'none',
+    }
+  };
 
   return (
     <div id="player-container" style={{
@@ -559,6 +748,7 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
         ref={videoRef}
         tabIndex="0"
         autoPlay
+        playsInline
         controls={false}
         style={{
           width: '100%',
@@ -648,7 +838,7 @@ export default function SimpleHlsPlayer({ url, title, groupTitle, groupChannels,
               onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('turkishDubbed')}
               tabIndex={0}
               style={{
-background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+                background: selectedButton === 'turkishDubbed' ? TEAM_GRAD : 'rgba(0, 0, 0, 0.5)',
                 color: '#fff',
                 padding: '10px',
                 borderRadius: '5px',
@@ -657,11 +847,11 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
                 transition: 'background 0.2s ease, transform 0.2s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+                e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? TEAM_GRAD : 'rgba(50, 50, 50, 0.7)';
                 e.currentTarget.style.transform = 'scale(1.1)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+                e.currentTarget.style.background = selectedButton === 'turkishDubbed' ? TEAM_GRAD : 'rgba(0, 0, 0, 0.5)';
                 e.currentTarget.style.transform = 'scale(1)';
               }}
               onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
@@ -676,7 +866,7 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
               onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('turkishSubtitles')}
               tabIndex={0}
               style={{
-                background: selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+                background: selectedButton === 'turkishSubtitles' ? TEAM_GRAD : 'rgba(0, 0, 0, 0.5)',
                 color: '#fff',
                 padding: '10px',
                 borderRadius: '5px',
@@ -685,11 +875,11 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
                 transition: 'background 0.2s ease, transform 0.2s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+                e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? TEAM_GRAD : 'rgba(50, 50, 50, 0.7)';
                 e.currentTarget.style.transform = 'scale(1.1)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+                e.currentTarget.style.background = selectedButton === 'turkishSubtitles' ? TEAM_GRAD : 'rgba(0, 0, 0, 0.5)';
                 e.currentTarget.style.transform = 'scale(1)';
               }}
               onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
@@ -703,7 +893,7 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
             onKeyDown={(e) => e.key === 'Enter' && handleLanguageChange('original')}
             tabIndex={0}
             style={{
-              background: selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
+              background: selectedButton === 'original' ? TEAM_GRAD : 'rgba(0, 0, 0, 0.5)',
               color: '#fff',
               padding: '10px',
               borderRadius: '5px',
@@ -712,11 +902,11 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
               transition: 'background 0.2s ease, transform 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
+              e.currentTarget.style.background = selectedButton === 'original' ? TEAM_GRAD : 'rgba(50, 50, 50, 0.7)';
               e.currentTarget.style.transform = 'scale(1.1)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = selectedButton === 'original' ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
+              e.currentTarget.style.background = selectedButton === 'original' ? TEAM_GRAD : 'rgba(0, 0, 0, 0.5)';
               e.currentTarget.style.transform = 'scale(1)';
             }}
             onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
@@ -727,7 +917,7 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
         </div>
       )}
 
-      {/* Oynatma Kontrol Butonları */}
+      {/* Oynatma Kontrol Butonları (geri eklendi) */}
       <div style={{
         position: 'absolute',
         top: '50%',
@@ -829,35 +1019,141 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
         >
           <span className="material-icons" style={{ color: '#fff', fontSize: '48px' }}>forward_30</span>
         </button>
+      </div>
+
+      {/* Kontrol Paneli - GÜNCELLENDİ: Dock + popover menüler */}
+      <div style={ui.dock}>
         <button
           onClick={() => {
-            setShowChannelList(!showChannelList);
-            showNotification(showChannelList ? 'Bölüm listesi kapatıldı' : 'Bölüm listesi açıldı');
+            setShowAudioOptions(v => !v);
+            setShowSubtitleOptions(false);
+            setShowSpeedOptions(false);
+            setShowQualityOptions(false);
           }}
-          onKeyDown={(e) => e.key === 'Enter' && setShowChannelList(!showChannelList)}
           tabIndex={0}
-          style={{
-            background: 'rgba(0, 0, 0, 0.5)',
-            border: 'none',
-            borderRadius: '50%',
-            padding: '20px',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease, transform 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+          style={ui.iconBtn(selectedAudio >= 0)}
+          title="Ses Parçası"
         >
-          <span className="material-icons" style={{ color: '#fff', fontSize: '48px' }}>list</span>
+          <span className="material-icons" style={ui.iconGlyph}>audiotrack</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setShowSubtitleOptions(v => !v);
+            setShowAudioOptions(false);
+            setShowSpeedOptions(false);
+            setShowQualityOptions(false);
+          }}
+          tabIndex={0}
+          style={ui.iconBtn(selectedSubtitle >= 0)}
+          title="Altyazı"
+        >
+          <span className="material-icons" style={ui.iconGlyph}>subtitles</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setShowSpeedOptions(v => !v);
+            setShowAudioOptions(false);
+            setShowSubtitleOptions(false);
+            setShowQualityOptions(false);
+          }}
+          tabIndex={0}
+          style={ui.iconBtn(false)}
+          title="Oynatma Hızı"
+        >
+          <span className="material-icons" style={ui.iconGlyph}>speed</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setShowQualityOptions(v => !v);
+            setShowAudioOptions(false);
+            setShowSubtitleOptions(false);
+            setShowSpeedOptions(false);
+          }}
+          tabIndex={0}
+          style={ui.iconBtn(selectedQuality !== -1)}
+          title="Kalite"
+        >
+          <span className="material-icons" style={ui.iconGlyph}>high_quality</span>
         </button>
       </div>
+
+      {/* Popover Menüler */}
+      {showAudioOptions && (
+        <div style={ui.menu}>
+          {audioTracks.map((track, index) => (
+            <div
+              key={index}
+              onClick={() => handleAudioChange(index)}
+              style={ui.menuItem(index === selectedAudio)}
+            >
+              <span>{track.lang ? (LANG_MAP[track.lang] || track.lang) : `Ses ${index + 1}`}</span>
+              {index === selectedAudio && <span className="material-icons" style={ui.menuItemIcon}>check</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showSubtitleOptions && (
+        <div style={ui.menu}>
+          <div
+            onClick={() => handleSubtitleChange(-1)}
+            style={ui.menuItem(selectedSubtitle === -1)}
+          >
+            <span>Kapalı</span>
+            {selectedSubtitle === -1 && <span className="material-icons" style={ui.menuItemIcon}>check</span>}
+          </div>
+          {subtitleTracks.map((track, index) => (
+            <div
+              key={index}
+              onClick={() => handleSubtitleChange(index)}
+              style={ui.menuItem(index === selectedSubtitle)}
+            >
+              <span>{track.lang ? (LANG_MAP[track.lang] || track.lang) : `Altyazı ${index + 1}`}</span>
+              {index === selectedSubtitle && <span className="material-icons" style={ui.menuItemIcon}>check</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showSpeedOptions && (
+        <div style={ui.menu}>
+          {SPEEDS.map(rate => (
+            <div
+              key={rate}
+              onClick={() => handleSpeedSelect(rate)}
+              style={ui.menuItem(playbackRate === rate)}
+            >
+              <span>{rate}x</span>
+              {playbackRate === rate && <span className="material-icons" style={ui.menuItemIcon}>check</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showQualityOptions && (
+        <div style={ui.menu}>
+          <div
+            onClick={() => handleQualityChange(-1)}
+            style={ui.menuItem(selectedQuality === -1)}
+          >
+            <span>Otomatik</span>
+            {selectedQuality === -1 && <span className="material-icons" style={ui.menuItemIcon}>check</span>}
+          </div>
+          {qualityLevels.map((level, index) => (
+            <div
+              key={index}
+              onClick={() => handleQualityChange(index)}
+              style={ui.menuItem(selectedQuality === index)}
+            >
+              <span>{level.height ? `${level.height}p` : `Seviye ${index + 1}`}</span>
+              {selectedQuality === index && <span className="material-icons" style={ui.menuItemIcon}>check</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Bildirim */}
       {notificationVisible && (
@@ -913,7 +1209,7 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
             <div style={{
               width: `${progress}%`,
               height: '100%',
-              background: 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))',
+              background: TEAM_GRAD, // DEĞİŞTİ: İlerleme çubuğu rengi
               position: 'absolute',
               zIndex: 2,
               transition: 'width 0.2s ease',
@@ -948,7 +1244,7 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
               onKeyDown={(e) => e.key === 'Enter' && handleChannelSelect(channel, index)}
               style={{
                 padding: '10px',
-                background: focusedChannelIndex === index ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.5)',
+                background: focusedChannelIndex === index ? TEAM_GRAD : 'rgba(50, 50, 50, 0.5)',
                 borderRadius: '5px',
                 marginBottom: '5px',
                 cursor: 'pointer',
@@ -961,214 +1257,6 @@ background: selectedButton === 'turkishDubbed' ? 'linear-gradient(to right, rgb(
           ))}
         </div>
       )}
-
-      {/* Kontrol Paneli */}
-      <div style={{
-        position: 'absolute',
-        bottom: '20px',
-        right: '12px',
-        display: 'flex',
-        gap: 12,
-        alignItems: 'center',
-        zIndex: 100,
-        opacity: controlsVisible ? 1 : 0,
-        transition: 'opacity 0.5s ease',
-        pointerEvents: controlsVisible ? 'auto' : 'none',
-      }}>
-        <button
-          onClick={() => setShowAudioOptions(!showAudioOptions)}
-          onKeyDown={(e) => e.key === 'Enter' && setShowAudioOptions(!showAudioOptions)}
-          tabIndex={0}
-          style={{
-            background: selectedAudio >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
-            border: 'none',
-            borderRadius: '50%',
-            padding: '10px',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease, transform 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = selectedAudio >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50, 0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = selectedAudio >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        >
-          <span className="material-icons" style={{ color: '#fff' }}>audiotrack</span>
-        </button>
-        {showAudioOptions && (
-          <select
-            value={selectedAudio}
-            onChange={(e) => handleAudioChange(e.target.value)}
-            tabIndex={0}
-            style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '50px',
-              padding: '6px 10px',
-              cursor: 'pointer'
-            }}
-          >
-            {audioTracks.map((track, index) => (
-              <option key={index} value={index}>
-                {track.lang ? LANG_MAP[track.lang] || track.lang : `Ses ${index + 1}`}
-              </option>
-            ))}
-          </select>
-        )}
-
-        <button
-          onClick={() => setShowSubtitleOptions(!showSubtitleOptions)}
-          onKeyDown={(e) => e.key === 'Enter' && setShowSubtitleOptions(!showSubtitleOptions)}
-          tabIndex={0}
-          style={{
-            background: selectedSubtitle >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)',
-            border: 'none',
-            borderRadius: '50%',
-            padding: '10px',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease, transform 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = selectedSubtitle >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(50, 50, 50,0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = selectedSubtitle >= 0 ? 'linear-gradient(to right, rgb(229, 9, 20), rgb(184, 29, 36))' : 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        >
-          <span className="material-icons" style={{ color: '#fff' }}>subtitles</span>
-        </button>
-        {showSubtitleOptions && (
-          <select
-            value={selectedSubtitle}
-            onChange={(e) => handleSubtitleChange(e.target.value)}
-            tabIndex={0}
-            style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '50px',
-              padding: '6px 10px',
-              cursor: 'pointer'
-            }}
-          >
-            <option value={-1}>Kapalı</option>
-            {subtitleTracks.map((track, index) => (
-              <option key={index} value={index}>
-                {track.lang ? LANG_MAP[track.lang] || track.lang : `Altyazı ${index + 1}`}
-              </option>
-            ))}
-          </select>
-        )}
-
-        <button
-          onClick={() => setShowSpeedOptions(!showSpeedOptions)}
-          onKeyDown={(e) => e.key === 'Enter' && setShowSpeedOptions(!showSpeedOptions)}
-          tabIndex={0}
-          style={{
-            background: 'rgba(0, 0, 0, 0.5)',
-            border: 'none',
-            borderRadius: '50%',
-            padding: '10px',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease, transform 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        >
-          <span className="material-icons" style={{ color: '#fff' }}>speed</span>
-        </button>
-        {showSpeedOptions && (
-          <select
-            value={playbackRate}
-            onChange={(e) => {
-              const rate = parseFloat(e.target.value);
-              setPlaybackRate(rate);
-              if (videoRef.current) videoRef.current.playbackRate = rate;
-            }}
-            tabIndex={0}
-            style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '50px',
-              padding: '6px 10px',
-              cursor: 'pointer'
-            }}
-          >
-            <option value={0.25}>0.25x</option>
-            <option value={0.50}>0.5x</option>
-            <option value={0.75}>0.75x</option>
-            <option value={1}>1x</option>
-            <option value={1.25}>1.25x</option>
-            <option value={1.5}>1.5x</option>
-            <option value={2}>2x</option>
-          </select>
-        )}
-
-        <button
-          onClick={() => setShowQualityOptions(!showQualityOptions)}
-          onKeyDown={(e) => e.key === 'Enter' && setShowQualityOptions(!showQualityOptions)}
-          tabIndex={0}
-          style={{
-            background: 'rgba(0, 0, 0, 0.5)',
-            border: 'none',
-            borderRadius: '50%',
-            padding: '10px',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease, transform 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(50, 50, 50, 0.7)';
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        >
-          <span className="material-icons" style={{ color: '#fff' }}>high_quality</span>
-        </button>
-        {showQualityOptions && (
-          <select
-            value={selectedQuality}
-            onChange={(e) => handleQualityChange(e.target.value)}
-            tabIndex={0}
-            style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '50px',
-              padding: '6px 10px',
-              cursor: 'pointer'
-            }}
-          >
-            <option value={-1}>Otomatik</option>
-            {qualityLevels.map((level, index) => (
-              <option key={index} value={index}>{level.height ? `${level.height}p` : `Seviye ${index + 1}`}</option>
-            ))}
-          </select>
-        )}
-      </div>
     </div>
   );
 }
