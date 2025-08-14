@@ -12,8 +12,8 @@ import 'video.js/dist/video-js.css';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 
 const SOURCES = [
-  { name: "DMAX", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-dmax-com-tr/all.m3u", platform: "DMAX" },
-  { name: "TLC", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-tlctv-com-tr/all.m3u", platform: "TLC" },
+  { name: "DMAX", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/DMAX/DMAX.m3u", platform: "DMAX" },
+  { name: "TLC", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/TLC/TLC.m3u", platform: "TLC" },
   { name: "SPOR", url: "https://m3u.ch/YNZ63gqZ.m3u", platform: "SPOR" },
   { name: "BEİN ÖZET", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/beinozet.m3u", platform: "BEİN ÖZET" },
   { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_movies.m3u", platform: "POWER SİNEMA" },
