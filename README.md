@@ -39,4 +39,4 @@ GKinoo, farklı kaynaklardan canlı TV, dizi, film ve çizgi film içeriklerini 
 Bu proje yalnızca eğitim ve kişisel kullanım amaçlıdır. İçeriklerin telif haklarına dikkat ediniz.
 
 ---
-GKinoo IPTV © 2024
+GKinoo IPTV © 2025
