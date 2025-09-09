@@ -6,19 +6,19 @@ const platforms = [
 		name: 'Disney+',
 		logo: '/platformlar/logo/disney.png',
 		video: '/platformlar/logo/video/disney.mp4',
-		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u',
+		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/DMAX/DMAX.m3u',
 	},
 	{
 		name: 'Pixar',
 		logo: '/platformlar/logo/pixar.png',
 		video: '/platformlar/logo/video/pixar.mp4',
-		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u',
+		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/m3u/Amazon%20Prime.m3u',
 	},
 	{
 		name: 'Marvel',
 		logo: '/platformlar/logo/marvel.png',
 		video: '/platformlar/logo/video/marvel.mp4',
-		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u',
+		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/movies12.m3u',
 	},
 	{
 		name: 'Star Wars',

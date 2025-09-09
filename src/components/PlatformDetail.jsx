@@ -3,14 +3,23 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { parseM3U } from './PlatformShowcase';
 
 function groupByTvgName(groups) {
-  const allSeries = Object.values(groups).flat();
-  const tvgMap = {};
-  for (const item of allSeries) {
-    const key = item['tvg-name'] || item.name;
-    if (!tvgMap[key]) tvgMap[key] = [];
-    tvgMap[key].push(item);
+  // group-title bazlı normalize (trim + lowerCase) gruplama
+  const allItems = Object.values(groups).flat();
+  const normMap = new Map();
+  for (const item of allItems) {
+    const rawGroup = ((item['group-title'] ?? item.group ?? '') + '').trim();
+    if (!rawGroup) continue;
+    const normKey = rawGroup.toLowerCase();
+    if (!normMap.has(normKey)) {
+      normMap.set(normKey, { displayName: rawGroup, items: [] });
+    }
+    normMap.get(normKey).items.push(item);
   }
-  return tvgMap;
+  const result = {};
+  for (const { displayName, items } of normMap.values()) {
+    result[displayName] = items;
+  }
+  return result;
 }
 
 const getColumns = () => {

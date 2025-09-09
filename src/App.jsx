@@ -10,6 +10,8 @@ import PlatformDetail from './components/PlatformDetail';
 import PlatformSeriesDetail from './components/PlatformSeriesDetail';
 import 'video.js/dist/video-js.css';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import CategoryShowcase from "./pages/CategoryShowcase";
+import CategoryDetail from "./pages/CategoryDetail";
 
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/DMAX/DMAX.m3u", platform: "DMAX" },
@@ -18,7 +20,7 @@ const SOURCES = [
   { name: "BEİN ÖZET", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/beinozet.m3u", platform: "BEİN ÖZET" },
   { name: "POWER SİNEMA", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_movies.m3u", platform: "POWER SİNEMA" },
   { name: "POWER DİZİ", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/rectv_series.m3u", platform: "POWER DİZİ" },
-  { name: "KABLO TV", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/denemem%20oldu.m3u8", platform: "KABLO TV" },
+  { name: "KABLO TV", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/m3u/Amazon%20Prime.m3u", platform: "KABLO TV" },
   { name: "YEDEK", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/serifilm.m3u", platform: "YEDEK" },
   { name: "CARTOON NETWORK", url: "https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-cartoonnetwork-com-tr/videolar.m3u", platform: "CARTOON NETWORK" }
 ];
@@ -365,6 +367,34 @@ function AppContent() {
               marginBottom: '10px'
             }}
           />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button
+              onClick={() => { setMobileMenuOpen(false); navigate('/platform'); }}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid #444',
+                background: theme === 'dark' ? '#23272f' : '#eee',
+                color: theme === 'dark' ? '#fff' : '#222',
+                flex: 1
+              }}
+            >
+              Platformlar
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); navigate('/kategoriler'); }}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid #444',
+                background: theme === 'dark' ? '#23272f' : '#eee',
+                color: theme === 'dark' ? '#fff' : '#222',
+                flex: 1
+              }}
+            >
+              Kategoriler
+            </button>
+          </div>
         </div>
       )}
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -409,6 +439,7 @@ function AppContent() {
                       onUrlSubmit={handleUrlSubmit}
                       customSources={customSources}
                       onShowPlatforms={() => navigate('/platform')} // Navigate to /platform
+                      onShowCategories={() => navigate('/kategoriler')} // Navigate to /kategoriler
                     />
                   )}
                 </div>
@@ -509,6 +540,8 @@ function AppContent() {
           <Route path="/platform" element={<PlatformShowcase onBack={() => navigate('/')} />} />
           <Route path="/platform/:name" element={<PlatformDetail />} />
           <Route path="/platform/:platformName/:seriesName" element={<PlatformSeriesDetail />} />
+          <Route path="/kategoriler" element={<CategoryShowcase />} />
+          <Route path="/kategoriler/:slug" element={<CategoryDetail />} />
         </Routes>
       </div>
     </div>

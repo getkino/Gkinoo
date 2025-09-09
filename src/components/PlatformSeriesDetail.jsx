@@ -30,6 +30,76 @@ export default function PlatformSeriesDetail() {
   // Memoized episodes
   const episodesList = useMemo(() => episodes || [], [episodes]);
 
+  // Tekrarlı başlığı temizlemek için yardımcılar (geliştirilmiş)
+  const decodedSeries = useMemo(() => decodeURIComponent(seriesName || ''), [seriesName]);
+
+  const normalizeText = useCallback((s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim(), []);
+  const escapeRegExp = useCallback((s) => (s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), []);
+
+  const canonicalizeSeasonEp = useCallback((s) => {
+    if (!s) return '';
+    // 9. Sezon 3. Bölüm
+    let m = s.match(/(\d+)\s*\.?\s*sezon\s*(\d+)\s*\.?\s*bölüm/i);
+    if (m) return `${parseInt(m[1], 10)}. Sezon ${parseInt(m[2], 10)}. Bölüm`;
+    // Sezon 9 Bölüm 3
+    m = s.match(/sezon\s*(\d+)\s*bölüm\s*(\d+)/i);
+    if (m) return `${parseInt(m[1], 10)}. Sezon ${parseInt(m[2], 10)}. Bölüm`;
+    // S09E03, S9E3, S 9 E 3
+    m = s.match(/s\s*(\d{1,2})\s*e\s*(\d{1,3})/i) || s.match(/s(\d{1,2})e(\d{1,3})/i);
+    if (m) return `${parseInt(m[1], 10)}. Sezon ${parseInt(m[2], 10)}. Bölüm`;
+    return '';
+  }, []);
+
+  const extractSeasonEp = useCallback((title) => {
+    if (!title) return '';
+    // Başlıktan TR tarzı veya SxxEyy desenini ayıkla
+    const patterns = [
+      /(\d+)\s*\.?\s*sezon\s*(\d+)\s*\.?\s*bölüm/i,
+      /sezon\s*(\d+)\s*bölüm\s*(\d+)/i,
+      /s\s*(\d{1,2})\s*e\s*(\d{1,3})/i,
+      /s(\d{1,2})e(\d{1,3})/i,
+    ];
+    for (const p of patterns) {
+      const m = title.match(p);
+      if (m) {
+        if (m.length === 3) {
+          return `${parseInt(m[1], 10)}. Sezon ${parseInt(m[2], 10)}. Bölüm`;
+        }
+      }
+    }
+    return '';
+  }, []);
+
+  const removeSeriesPrefix = useCallback((t) => {
+    const sep = '[-–—:|]';
+    const re = new RegExp(`^\\s*${escapeRegExp(decodedSeries)}\\s*${sep}\\s*`, 'i');
+    return (t || '').replace(re, '').trim();
+  }, [decodedSeries, escapeRegExp]);
+
+  const getEpisodeTitle = useCallback((bolum) => {
+    const title = (bolum?.title || '').trim();
+    const seasonEpRaw = (bolum?.seasonEpisode || '').trim();
+    const seasonEp = canonicalizeSeasonEp(seasonEpRaw) || extractSeasonEp(title);
+
+    let cleaned = removeSeriesPrefix(title);
+
+    // Başlık Sezon/Bölüm ifadesini içeriyorsa sadece onu göster
+    if (seasonEp && normalizeText(cleaned).includes(normalizeText(seasonEp))) {
+      return seasonEp;
+    }
+
+    // Sezon/Bölüm çıkarılamadıysa veya başlıkta yoksa, temizlenmiş başlığı kullan
+    return cleaned || seasonEp || title;
+  }, [canonicalizeSeasonEp, extractSeasonEp, removeSeriesPrefix, normalizeText]);
+
+  const shouldShowSeasonLine = useCallback((bolum) => {
+    const titleText = getEpisodeTitle(bolum);
+    const seasonEpRaw = (bolum?.seasonEpisode || '').trim();
+    const seasonEp = canonicalizeSeasonEp(seasonEpRaw) || extractSeasonEp(bolum?.title || '');
+    if (!seasonEp) return false;
+    return normalizeText(titleText) !== normalizeText(seasonEp) && !normalizeText(titleText).includes(normalizeText(seasonEp));
+  }, [getEpisodeTitle, canonicalizeSeasonEp, extractSeasonEp, normalizeText]);
+
   // Callbacks
   const handleBackClick = useCallback(() => navigate(-1), [navigate]);
   
@@ -394,9 +464,9 @@ export default function PlatformSeriesDetail() {
               />
             )}
             <div style={{fontWeight:'bold', textAlign:'center', fontSize:'15px'}}>
-              {bolum.title}
+              {getEpisodeTitle(bolum)}
             </div>
-            {bolum.seasonEpisode && (
+            {shouldShowSeasonLine(bolum) && (
               <div style={{color:'#bbb', fontSize:'13px', textAlign:'center', marginTop:'4px'}}>
                 {bolum.seasonEpisode}
               </div>

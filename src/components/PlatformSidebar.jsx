@@ -12,7 +12,7 @@ const platforms = [
   { name: "CARTOON NETWORK", logo: "/images/cartoon.jpg" }
 ];
 
-export default function PlatformSidebar({ selected, onSelect, onFileUpload, onUrlSubmit, customSources, onShowPlatforms }) {
+export default function PlatformSidebar({ selected, onSelect, onFileUpload, onUrlSubmit, customSources, onShowPlatforms, onShowCategories }) {
   const [isMobile, setIsMobile] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -74,6 +74,28 @@ export default function PlatformSidebar({ selected, onSelect, onFileUpload, onUr
         onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(to right, #222, #444)'}
       >
         Platformlar
+      </button>
+      {/* Kategoriler Butonu */}
+      <button
+        onClick={onShowCategories}
+        style={{
+          width: '100%',
+          padding: '12px',
+          marginBottom: '16px',
+          background: 'linear-gradient(to right, #222, #444)',
+          color: '#febd59',
+          fontWeight: 'bold',
+          fontSize: '1.1rem',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px #0005',
+          transition: 'background 0.2s'
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'linear-gradient(to right, #febd59, #e50914)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(to right, #222, #444)'}
+      >
+        Kategoriler
       </button>
       {/* Arama kutusu */}
       <div style={{
