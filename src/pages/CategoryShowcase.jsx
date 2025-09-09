@@ -77,10 +77,10 @@ export default function CategoryShowcase() {
 
   useEffect(() => {
     const getColumns = () => {
-      if (window.innerWidth < 600) return 1;
-      if (window.innerWidth < 900) return 2;
-      if (window.innerWidth < 1400) return 3;
-      if (window.innerWidth < 1800) return 4;
+      if (window.innerWidth < 600) return 2;
+      if (window.innerWidth < 900) return 3;
+      if (window.innerWidth < 1400) return 4;
+      if (window.innerWidth < 1800) return 5;
       return 5;
     };
 
@@ -135,7 +135,7 @@ export default function CategoryShowcase() {
         if (item) handleCategoryClick(item.name);
         e.preventDefault();
       } else if (e.key === "Escape") {
-        navigate(-1);
+        navigate("/");
         e.preventDefault();
       }
     }
@@ -146,6 +146,19 @@ export default function CategoryShowcase() {
 
   useEffect(() => {
     setHovered(focusedIdx);
+    
+    // Seçili öğeyi görünür alana kaydır
+    if (gridRef.current) {
+      const cards = gridRef.current.children;
+      const focusedCard = cards[focusedIdx];
+      if (focusedCard) {
+        focusedCard.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'center'
+        });
+      }
+    }
   }, [focusedIdx]);
 
   return (
@@ -158,21 +171,23 @@ export default function CategoryShowcase() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "flex-start",
+        overflow: "auto",
+        padding: "80px 20px 20px 20px",
       }}
     >
       <button
-        onClick={() => navigate(-1)}
+        onClick={() => navigate("/")}
         style={{
           position: "absolute",
-          top: 24,
-          left: 24,
+          top: window.innerWidth < 600 ? "16px" : "24px",
+          left: window.innerWidth < 600 ? "16px" : "24px",
           background: "rgba(0,0,0,0.7)",
           color: "#fff",
           border: "none",
           borderRadius: "50%",
-          padding: "12px",
-          fontSize: "22px",
+          padding: window.innerWidth < 600 ? "8px" : "12px",
+          fontSize: window.innerWidth < 600 ? "18px" : "22px",
           cursor: "pointer",
           zIndex: 1001,
         }}
@@ -184,10 +199,18 @@ export default function CategoryShowcase() {
         ref={gridRef}
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, minmax(220px, 1fr))",
-          gap: "32px",
+          gridTemplateColumns: window.innerWidth < 600 
+            ? "repeat(2, 1fr)" 
+            : window.innerWidth < 900 
+            ? "repeat(3, 1fr)" 
+            : window.innerWidth < 1400 
+            ? "repeat(4, 1fr)" 
+            : window.innerWidth < 1800 
+            ? "repeat(5, 1fr)" 
+            : "repeat(5, 1fr)",
+          gap: "20px",
           width: "90vw",
-          maxWidth: "1400px",
+          maxWidth: "1200px",
           margin: "0 auto",
           alignItems: "center",
           justifyItems: "center",
@@ -200,11 +223,11 @@ export default function CategoryShowcase() {
               key={cat.name}
               style={{
                 background: hovered === idx || focusedIdx === idx ? "#232323" : "#181818",
-                borderRadius: "16px",
+                borderRadius: window.innerWidth < 600 ? "12px" : "16px",
                 boxShadow:
                   hovered === idx || focusedIdx === idx ? "0 0 24px #febd59" : "0 2px 16px #0005",
                 width: "100%",
-                height: "145px",
+                height: "120px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -224,7 +247,7 @@ export default function CategoryShowcase() {
                   width: "80%",
                   textAlign: "center",
                   color: "#fff",
-                  fontSize: "1.1rem",
+                  fontSize: window.innerWidth < 600 ? "0.9rem" : window.innerWidth < 900 ? "1rem" : "1.1rem",
                   fontWeight: 600,
                   letterSpacing: 0.5,
                   zIndex: 2,
@@ -248,7 +271,7 @@ export default function CategoryShowcase() {
                     width: "100%",
                     height: "100%",
                     objectFit: "cover",
-                    borderRadius: "16px",
+                    borderRadius: window.innerWidth < 600 ? "12px" : "16px",
                     opacity: 0.6,
                     zIndex: 1,
                     pointerEvents: "none",

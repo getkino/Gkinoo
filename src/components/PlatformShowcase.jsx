@@ -146,10 +146,9 @@ export default function PlatformShowcase({ onBack }) {
 	// Uzaktan kumanda desteği (ok tuşları ve enter)
 	useEffect(() => {
 		const getColumns = () => {
-			if (window.innerWidth < 600) return 1;
-    		if (window.innerWidth < 900) return 2;
-    		if (window.innerWidth < 1400) return 3;
-    		if (window.innerWidth < 1800) return 4;
+			if (window.innerWidth < 600) return 2;
+			if (window.innerWidth < 900) return 3;
+			if (window.innerWidth < 1400) return 4;
 			return 4;
 		};
 
@@ -212,9 +211,21 @@ export default function PlatformShowcase({ onBack }) {
 		return () => window.removeEventListener('keydown', handleKeyDown);
 	}, [focusedIdx, platforms, onBack]);
 
-	// Otomatik focus için
+	// Otomatik focus ve scroll için
 	useEffect(() => {
 		setHovered(focusedIdx);
+		
+		// Odaklanan öğeyi görünür alana kaydır
+		if (gridRef.current) {
+			const focusedElement = gridRef.current.children[focusedIdx];
+			if (focusedElement) {
+				focusedElement.scrollIntoView({
+					behavior: 'smooth',
+					block: 'center',
+					inline: 'center'
+				});
+			}
+		}
 	}, [focusedIdx]);
 
 	return (
@@ -227,7 +238,9 @@ export default function PlatformShowcase({ onBack }) {
 				display: 'flex',
 				flexDirection: 'column',
 				alignItems: 'center',
-				justifyContent: 'center',
+				justifyContent: 'flex-start',
+				overflow: 'auto',
+				padding: '80px 20px 20px 20px',
 			}}
 		>
 			{/* Geri Butonu */}
@@ -235,14 +248,14 @@ export default function PlatformShowcase({ onBack }) {
 				onClick={onBack}
 				style={{
 					position: 'absolute',
-					top: 24,
-					left: 24,
+					top: window.innerWidth < 600 ? '16px' : '24px',
+					left: window.innerWidth < 600 ? '16px' : '24px',
 					background: 'rgba(0,0,0,0.7)',
 					color: '#fff',
 					border: 'none',
 					borderRadius: '50%',
-					padding: '12px',
-					fontSize: '22px',
+					padding: window.innerWidth < 600 ? '8px' : '12px',
+					fontSize: window.innerWidth < 600 ? '18px' : '22px',
 					cursor: 'pointer',
 					zIndex: 1001,
 				}}
@@ -254,10 +267,16 @@ export default function PlatformShowcase({ onBack }) {
 				ref={gridRef}
 				style={{
 					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-					gap: '32px',
+					gridTemplateColumns: window.innerWidth < 600 
+						? 'repeat(2, 1fr)' 
+						: window.innerWidth < 900 
+						? 'repeat(3, 1fr)' 
+						: window.innerWidth < 1400 
+						? 'repeat(4, 1fr)' 
+						: 'repeat(4, 1fr)',
+					gap: '20px',
 					width: '90vw',
-					maxWidth: '1400px',
+					maxWidth: '1200px',
 					margin: '0 auto',
 					alignItems: 'center',
 					justifyItems: 'center',
@@ -270,13 +289,13 @@ export default function PlatformShowcase({ onBack }) {
 							background: hovered === idx || focusedIdx === idx
 								? '#232323'
 								: '#181818',
-							borderRadius: '16px',
+							borderRadius: window.innerWidth < 600 ? '12px' : '16px',
 							boxShadow:
 								hovered === idx || focusedIdx === idx
 									? '0 0 24px #febd59'
 									: '0 2px 16px #0005',
-							width: '259px',
-							height: '145px',
+							width: '100%',
+							height: window.innerWidth < 600 ? '120px' : '160px',
 							display: 'flex',
 							alignItems: 'center',
 							justifyContent: 'center',
@@ -294,8 +313,8 @@ export default function PlatformShowcase({ onBack }) {
 							src={p.logo}
 							alt={p.name}
 							style={{
-								width: '70%',
-								height: '70%',
+								width: window.innerWidth < 600 ? '60%' : '65%',
+								height: window.innerWidth < 600 ? '60%' : '65%',
 								objectFit: 'contain',
 								borderRadius: '12px',
 								filter: 'drop-shadow(0 2px 8px #0007)',
@@ -315,9 +334,9 @@ export default function PlatformShowcase({ onBack }) {
 									left: 0,
 									width: '100%',
 									height: '100%',
-									objectFit: 'contain',
-									borderRadius: '16px',
-									opacity: 0.7,
+									objectFit: 'cover',
+									borderRadius: window.innerWidth < 600 ? '12px' : '16px',
+									opacity: 0.6,
 									zIndex: 1,
 									pointerEvents: 'none',
 								}}

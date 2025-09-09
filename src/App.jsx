@@ -8,6 +8,7 @@ import SimpleHlsPlayer from './components/SimpleHlsPlayer';
 import PlatformShowcase from './components/PlatformShowcase';
 import PlatformDetail from './components/PlatformDetail';
 import PlatformSeriesDetail from './components/PlatformSeriesDetail';
+import HomePage from './pages/HomePage';
 import 'video.js/dist/video-js.css';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import CategoryShowcase from "./pages/CategoryShowcase";
@@ -399,7 +400,8 @@ function AppContent() {
       )}
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <Routes>
-          <Route path="/" element={
+          <Route path="/" element={<HomePage />} />
+          <Route path="/live-tv" element={
             <>
               {!isWatching && (
                 <div
@@ -438,8 +440,8 @@ function AppContent() {
                       onFileUpload={handleFileUpload}
                       onUrlSubmit={handleUrlSubmit}
                       customSources={customSources}
-                      onShowPlatforms={() => navigate('/platform')} // Navigate to /platform
-                      onShowCategories={() => navigate('/kategoriler')} // Navigate to /kategoriler
+                      onShowPlatforms={() => navigate('/platform')}
+                      onShowCategories={() => navigate('/kategoriler')}
                     />
                   )}
                 </div>
@@ -456,12 +458,10 @@ function AppContent() {
                   display: 'flex',
                   flexDirection: 'column'
                 }}>
-                  {/* Platformlar sayfası */}
                   {showPlatforms ? (
                     <PlatformShowcase onBack={() => setShowPlatforms(false)} />
                   ) : (
                     <>
-                      {/* Arama kutusu MobileHeader ve mobil menüye taşındı, burada kaldırıldı */}
                       {isWatching && selectedChannel ? (
                         <SimpleHlsPlayer
                           url={selectedChannel.url}
@@ -476,7 +476,6 @@ function AppContent() {
                         />
                       ) : selectedGroup ? (
                         <>
-                          {/* TMDB Dizi Bilgisi kaldırıldı, player içine taşındı */}
                           <ChannelGrid
                             ref={gridRef}
                             channels={flatEpisodes.filter(ch =>
@@ -532,7 +531,6 @@ function AppContent() {
                       )}
                     </>
                   )}
-                  {/* ...existing code... */}
                 </div>
               </div>
             </>
@@ -542,6 +540,21 @@ function AppContent() {
           <Route path="/platform/:platformName/:seriesName" element={<PlatformSeriesDetail />} />
           <Route path="/kategoriler" element={<CategoryShowcase />} />
           <Route path="/kategoriler/:slug" element={<CategoryDetail />} />
+          <Route path="/belgeseller" element={
+            <div style={{
+              minHeight: '100vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
+              color: 'white'
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>Belgeseller</h1>
+                <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Bu bölüm yakında gelecek...</p>
+              </div>
+            </div>
+          } />
         </Routes>
       </div>
     </div>
