@@ -101,31 +101,33 @@ const HomePage = () => {
           </div>
         </div>
         
+        {/* Ayarlar butonu */}
         <button
-          onClick={handleThemeToggle}
+          onClick={() => navigate('/ayarlar')}
+          aria-label="Ayarlar"
           style={{
             background: theme === 'dark' ? '#202020' : '#f2f2f2',
             border: theme === 'dark' ? '1px solid #2a2a2a' : '1px solid #e5e7eb',
-            borderRadius: '16px',
-            padding: '10px 14px',
+            borderRadius: '50%',
+            width: 72,
+            height: 72,
             cursor: 'pointer',
-            fontSize: '18px',
+            fontSize: '30px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             color: theme === 'dark' ? '#ffffff' : '#111111',
-            boxShadow: theme === 'dark' ? '0 2px 10px rgba(0,0,0,0.35)' : '0 2px 10px rgba(0,0,0,0.08)',
-            transition: 'all 0.2s ease'
+            boxShadow: theme === 'dark' ? '0 2px 12px rgba(0,0,0,0.45)' : '0 2px 12px rgba(0,0,0,0.1)',
+            transition: 'all .25s'
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = theme === 'dark' ? '#2a2a2a' : '#eaeaea';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-            e.currentTarget.style.boxShadow = theme === 'dark' ? '0 6px 18px rgba(0,0,0,0.45)' : '0 6px 18px rgba(0,0,0,0.12)';
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'translateY(-4px)';
           }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = theme === 'dark' ? '#202020' : '#f2f2f2';
+          onMouseLeave={e => {
             e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = theme === 'dark' ? '0 2px 10px rgba(0,0,0,0.35)' : '0 2px 10px rgba(0,0,0,0.08)';
           }}
         >
-          {theme === 'dark' ? '⚙️' : '⚙️'}
+          ⚙️
         </button>
       </div>
 
@@ -347,7 +349,7 @@ const HomePage = () => {
           >
             <div style={{ fontSize: '56px', marginBottom: '18px' }}>🧸</div>
             <h2 style={{ fontSize: '28px', fontWeight: '700', margin: '0 0 10px 0', color: theme === 'dark' ? '#fff' : '#333' }}>
-              Animasyon
+              Çizgi Film
             </h2>
           </div>
         </div>

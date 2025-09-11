@@ -13,6 +13,8 @@ import 'video.js/dist/video-js.css';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import CategoryShowcase from "./pages/CategoryShowcase";
 import CategoryDetail from "./pages/CategoryDetail";
+import SettingsPage from './pages/SettingsPage';
+import TmdbMovie from './pages/TmdbMovie';
 
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/DMAX/DMAX.m3u", platform: "DMAX" },
@@ -401,6 +403,7 @@ function AppContent() {
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/movie/:tmdbId" element={<TmdbMovie />} />
           <Route path="/live-tv" element={
             <>
               {!isWatching && (
@@ -540,6 +543,7 @@ function AppContent() {
           <Route path="/platform/:platformName/:seriesName" element={<PlatformSeriesDetail />} />
           <Route path="/kategoriler" element={<CategoryShowcase />} />
           <Route path="/kategoriler/:slug" element={<CategoryDetail />} />
+          <Route path="/ayarlar" element={<SettingsPage />} />
           <Route path="/belgeseller" element={
             <div style={{
               minHeight: '100vh',
