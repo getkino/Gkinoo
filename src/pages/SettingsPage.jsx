@@ -133,7 +133,7 @@ const SettingsPage = () => {
   const panels = { account: renderAccount(), about: renderAbout(), subtitles: renderSubtitles(), language: renderLanguage(), history: renderHistory(), support: renderSupport() };
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', padding:0, margin:0, gap:78, color:'#e5e7eb', fontFamily:'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif', background:'#111315', position:'fixed', top:0, left:0, width:'100vw', height:'100vh' }}>
+    <div style={{ display:'flex', minHeight:'100vh', padding:0, margin:0, gap:78, color:'#e5e7eb', fontFamily:'Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif', background:'#111315', position:'fixed', top:0, left:0, width:'100vw', height:'100vh' }}>
       <nav style={{ width:380, display:'flex', flexDirection:'column', gap:34, padding:'54px 40px 80px' }}>
         <div style={{ marginBottom:20 }}>
           <button onClick={() => window.history.back()} style={{

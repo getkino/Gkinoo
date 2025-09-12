@@ -41,7 +41,7 @@ export default function PlatformSeriesPage() {
 	if (!platform) return <div style={{color:'#fff'}}>Platform seçilmedi.</div>;
 
 	return (
-		<div style={{background:'#111', minHeight:'100vh', padding:'32px'}}>
+		<div style={{background:'#111', minHeight:'100vh', padding:'32px', fontFamily:'Inter, system-ui, -apple-system, sans-serif'}}>
 			<button
 				onClick={() => navigate(-1)}
 				style={{
@@ -60,7 +60,7 @@ export default function PlatformSeriesPage() {
 			>
 				<span className="material-icons">arrow_back</span>
 			</button>
-			<h2 style={{color:'#fff', marginBottom:'32px'}}>{platform.name} Dizileri</h2>
+			<h2 style={{color:'#fff', marginBottom:'32px', fontFamily:'Inter, system-ui, -apple-system, sans-serif'}}>{platform.name} Dizileri</h2>
 			<ChannelGrid
 				channels={channels}
 				onSelect={handleSelect}

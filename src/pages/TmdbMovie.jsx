@@ -254,7 +254,7 @@ export default function TmdbMovie() {
           
           {cast.length>0 && (
             <div style={{marginBottom:32}}>
-              <h2 style={{margin:'0 0 20px',fontSize:'1.3rem',fontWeight:700,color:'#fff'}}>Cast & Crew</h2>
+              <h2 style={{margin:'0 0 20px',fontSize:'1.3rem',fontWeight:700,color:'#fff'}}>Oyuncular</h2>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(120px,1fr))',gap:12}}>
                 {cast.slice(0,6).map(p=> (
                   <div key={p.cast_id||p.credit_id||p.id} style={{background:'rgba(255,255,255,0.05)',borderRadius:10,padding:10,backdropFilter:'blur(10px)',border:'1px solid rgba(255,255,255,0.1)'}}>

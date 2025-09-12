@@ -297,7 +297,8 @@ function AppContent() {
       minHeight: '100vh',
       height: '100%',
       background: theme === 'dark' ? '#121212' : '#fff',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     }}>
       <MobileHeader
         onMenuClick={handleMenuClick}

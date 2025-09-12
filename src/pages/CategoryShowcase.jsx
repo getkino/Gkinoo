@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import AppHeader from "../components/AppHeader";
 
 // Sürekli değişecek gradyan video havuzu
 const GRADIENT_VIDEOS = [
@@ -50,8 +51,9 @@ export const CATEGORIES_DATA = [
   { name: "Yerli", m3u: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/denemefilm.m3u" },
 ];
 
-export const slugify = (str) =>
-  str
+export const slugify = (str) => {
+  if (!str || typeof str !== "string") return "";
+  return str
     .toLowerCase()
     .replace(/ç/g, "c")
     .replace(/ğ/g, "g")
@@ -61,44 +63,71 @@ export const slugify = (str) =>
     .replace(/ü/g, "u")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+};
 
-const calcColumns = (w) => {
-  if (w < 600) return 2;
-  if (w < 900) return 3;
-  if (w < 1400) return 4;
+const calcColumns = (width) => {
+  if (width < 600) return 2;
+  if (width < 900) return 3;
+  if (width < 1400) return 4;
   return 5;
 };
 
+const pickRandomItem = (array) => array[Math.floor(Math.random() * array.length)];
+
 export default function CategoryShowcase() {
   const [hovered, setHovered] = useState(null);
-  const [focusedIdx, setFocusedIdx] = useState(0);
-  // Dinamik video kaynakları için state
+  const [focusedIndex, setFocusedIndex] = useState(0);
   const [categoryVideos, setCategoryVideos] = useState([]);
-  // Yeni: her kategori için sabit bir gradyan (yenilenmez)
   const [categoryGradients, setCategoryGradients] = useState([]);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1920);
   const navigate = useNavigate();
   const gridRef = useRef(null);
+  const columns = useMemo(() => calcColumns(windowWidth), [windowWidth]);
 
-  function handleCategoryClick(name) {
+  const handleCategoryClick = useCallback((name) => {
     const category = CATEGORIES_DATA.find((c) => c.name === name);
     navigate(`/kategoriler/${slugify(name)}`, { state: { category } });
-  }
+  }, [navigate]);
 
-  // Videolar ve gradyanlar: sadece ilk yüklemede atanır (flicker olmaması için interval kaldırıldı)
   useEffect(() => {
-    const pickVideo = () => GRADIENT_VIDEOS[Math.floor(Math.random() * GRADIENT_VIDEOS.length)];
-    const pickGradient = () => GRADIENT_COLOR_SETS[Math.floor(Math.random() * GRADIENT_COLOR_SETS.length)];
-    setCategoryVideos(CATEGORIES_DATA.map(() => pickVideo()));
-    setCategoryGradients(CATEGORIES_DATA.map(() => pickGradient()));
+    setCategoryVideos(CATEGORIES_DATA.map(() => pickRandomItem(GRADIENT_VIDEOS)));
+    setCategoryGradients(CATEGORIES_DATA.map(() => pickRandomItem(GRADIENT_COLOR_SETS)));
   }, []);
 
-  // Resize dinleme
   useEffect(() => {
     const onResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target.querySelector("video");
+          if (video) {
+            if (entry.isIntersecting) {
+              video.play().catch(() => {});
+            } else {
+              video.pause();
+            }
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    const cards = gridRef.current?.children;
+    if (cards) {
+      Array.from(cards).forEach((card) => observer.observe(card));
+    }
+
+    return () => {
+      if (cards) {
+        Array.from(cards).forEach((card) => observer.unobserve(card));
+      }
+    };
+  }, [categoryVideos]);
 
   useEffect(() => {
     const getColumns = () => calcColumns(windowWidth);
@@ -114,43 +143,43 @@ export default function CategoryShowcase() {
 
       if (/^[1-9]$/.test(e.key)) {
         const idx = parseInt(e.key, 10) - 1;
-        if (idx < CATEGORIES_DATA.length) setFocusedIdx(idx);
+        if (idx < CATEGORIES_DATA.length) setFocusedIndex(idx);
         e.preventDefault();
         return;
       }
 
       if (e.key === "ArrowRight" || (e.key === "Tab" && !e.shiftKey)) {
-        setFocusedIdx((i) => {
+        setFocusedIndex((i) => {
           const next = i + 1;
           return next < CATEGORIES_DATA.length ? next : i;
         });
         e.preventDefault();
       } else if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
-        setFocusedIdx((i) => {
+        setFocusedIndex((i) => {
           const prev = i - 1;
           return prev >= 0 ? prev : i;
         });
         e.preventDefault();
       } else if (e.key === "ArrowDown" || e.key === "PageDown") {
-        setFocusedIdx((i) => {
+        setFocusedIndex((i) => {
           const next = i + columns;
           return next < CATEGORIES_DATA.length ? next : i;
         });
         e.preventDefault();
       } else if (e.key === "ArrowUp" || e.key === "PageUp") {
-        setFocusedIdx((i) => {
+        setFocusedIndex((i) => {
           const prev = i - columns;
           return prev >= 0 ? prev : i;
         });
         e.preventDefault();
       } else if (e.key === "Home") {
-        setFocusedIdx(0);
+        setFocusedIndex(0);
         e.preventDefault();
       } else if (e.key === "End") {
-        setFocusedIdx(CATEGORIES_DATA.length - 1);
+        setFocusedIndex(CATEGORIES_DATA.length - 1);
         e.preventDefault();
       } else if (e.key === "Enter" || e.key === "OK") {
-        const item = CATEGORIES_DATA[focusedIdx];
+        const item = CATEGORIES_DATA[focusedIndex];
         if (item) handleCategoryClick(item.name);
         e.preventDefault();
       } else if (e.key === "Escape") {
@@ -161,155 +190,133 @@ export default function CategoryShowcase() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedIdx, navigate, windowWidth]);
+  }, [focusedIndex, navigate, windowWidth]);
 
   useEffect(() => {
-    setHovered(focusedIdx);
+    setHovered(focusedIndex);
     if (gridRef.current) {
       const cards = gridRef.current.children;
-      const focusedCard = cards[focusedIdx];
+      const focusedCard = cards[focusedIndex];
       if (focusedCard) {
         focusedCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
       }
     }
-  }, [focusedIdx]);
+  }, [focusedIndex]);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "#111",
-        zIndex: 9999,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "flex-start",
-        overflow: "auto",
-        padding: "80px 20px 32px",
-      }}
-    >
-      {/* Geri butonu */}
-      <button
-        onClick={() => navigate("/")}
-        style={{
-          position: "absolute",
-          top: window.innerWidth < 600 ? "16px" : "24px",
-          left: window.innerWidth < 600 ? "16px" : "24px",
-          background: "rgba(0,0,0,0.5)",
-          backdropFilter: "blur(6px)",
-          color: "#fff",
-          border: "1px solid #fff3",
-          borderRadius: "50%",
-          padding: window.innerWidth < 600 ? "8px" : "12px",
-          fontSize: window.innerWidth < 600 ? "18px" : "22px",
-          cursor: "pointer",
-          zIndex: 1001,
-        }}
-      >
-        <span className="material-icons">arrow_back</span>
-      </button>
-
-      <div
-        ref={gridRef}
-        style={{
+    <div style={{ position: "fixed", inset: 0, background: "#111", display: "flex", flexDirection: "column", overflow: "auto", padding: 0, zIndex: 9999 }}>
+      <AppHeader active="categories" />
+      <div style={{ flex: 1, width: '100%', padding: '40px 20px 32px' }}>
+        <div
+          ref={gridRef}
+          style={{
             display: "grid",
-            gridTemplateColumns: `repeat(${calcColumns(windowWidth)}, 1fr)`,
+            gridTemplateColumns: `repeat(${columns}, 1fr)`,
             gap: "28px 24px",
             width: "88vw",
             maxWidth: "1500px",
             margin: "0 auto",
             alignItems: "center",
             justifyItems: "center",
-        }}
-      >
-        {CATEGORIES_DATA.map((cat, idx) => {
-          const videoSrc = categoryVideos[idx];
-          const gradient = categoryGradients[idx] || ["#222", "#101010"];
-          const isActive = hovered === idx || focusedIdx === idx;
-          return (
-            <div
-              key={cat.name}
-              style={{
-                position: "relative",
-                width: "100%",
-                height: window.innerWidth < 600 ? 100 : 140,
-                maxWidth: 260,
-                borderRadius: 18,
-                overflow: "hidden",
-                cursor: "pointer",
-                outline: isActive ? "3px solid #fff" : "1px solid #222",
-                boxShadow: isActive
-                  ? "0 0 0 3px #fff, 0 10px 30px -6px rgba(0,0,0,0.7)"
-                  : "0 6px 22px -8px rgba(0,0,0,0.65)",
-                transform: isActive ? "translateY(-4px) scale(1.05)" : "translateY(0) scale(1)",
-                transition: "transform .35s cubic-bezier(.22,.9,.34,1), box-shadow .3s, outline-color .3s",
-                background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              tabIndex={0}
-              onMouseEnter={() => setHovered(idx)}
-              onMouseLeave={() => setHovered(null)}
-              onClick={() => handleCategoryClick(cat.name)}
-              aria-label={cat.name}
-              role="button"
-            >
-              {/* Arka plan video (sadece aktifken) */}
-              {isActive && !!videoSrc && (
-                <video
-                  src={videoSrc}
-                  autoPlay
-                  loop
-                  muted
+          }}
+        >
+          {CATEGORIES_DATA.map((cat, idx) => {
+            const videoSrc = categoryVideos[idx];
+            const gradient = categoryGradients[idx] || ["#222", "#101010"];
+            const isActive = hovered === idx || focusedIndex === idx;
+            return (
+              <div
+                key={cat.name}
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: window.innerWidth < 600 ? 100 : 140,
+                  maxWidth: 260,
+                  borderRadius: 18,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  outline: isActive ? "3px solid #fff" : "1px solid #222",
+                  boxShadow: isActive
+                    ? "0 0 0 3px #fff, 0 10px 30px -6px rgba(0,0,0,0.7)"
+                    : "0 6px 22px -8px rgba(0,0,0,0.65)",
+                  transform: isActive ? "translateY(-4px) scale(1.05)" : "translateY(0) scale(1)",
+                  transition: "transform .35s cubic-bezier(.22,.9,.34,1), box-shadow .3s, outline-color .3s",
+                  background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                tabIndex={0}
+                onMouseEnter={() => setHovered(idx)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => handleCategoryClick(cat.name)}
+                aria-label={cat.name}
+                aria-selected={isActive}
+                role="button"
+              >
+                {isActive && !!videoSrc ? (
+                  <video
+                    src={videoSrc}
+                    autoPlay
+                    loop
+                    muted
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      filter: "brightness(.9) saturate(1.15)",
+                    }}
+                    onError={() => console.warn(`Video yüklenemedi: ${videoSrc}`)}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
+                    }}
+                  />
+                )}
+                <div
                   style={{
                     position: "absolute",
                     inset: 0,
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    filter: "brightness(.9) saturate(1.15)",
+                    background: isActive
+                      ? "linear-gradient(160deg, rgba(0,0,0,.15), rgba(0,0,0,.55))"
+                      : "linear-gradient(160deg, rgba(0,0,0,.5), rgba(0,0,0,.78))",
+                    backdropFilter: isActive ? "blur(6px)" : "blur(2px)",
+                    transition: "background .35s, backdrop-filter .35s",
                   }}
                 />
-              )}
-              {/* Koyu blur overlay (video / gradient üstüne) */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: isActive
-                    ? "linear-gradient(160deg, rgba(0,0,0,.15), rgba(0,0,0,.55))"
-                    : "linear-gradient(160deg, rgba(0,0,0,.5), rgba(0,0,0,.78))",
-                  backdropFilter: isActive ? "blur(6px)" : "blur(2px)",
-                  transition: "background .35s, backdrop-filter .35s",
-                }}
-              />
-              {/* Başlık */}
-              <div
-                style={{
-                  position: "relative",
-                  width: "82%",
-                  textAlign: "center",
-                  color: "#fff",
-                  fontSize: window.innerWidth < 600 ? "0.85rem" : window.innerWidth < 900 ? "0.95rem" : "1.05rem",
-                  fontWeight: 600,
-                  letterSpacing: 0.4,
-                  zIndex: 2,
-                  textShadow: "0 3px 10px rgba(0,0,0,0.85)",
-                  lineHeight: 1.25,
-                  userSelect: "none",
-                  overflow: 'hidden',
-                  whiteSpace: 'nowrap',
-                  textOverflow: 'ellipsis'
-                }}
-                title={cat.name}
-              >
-                {cat.name}
+                <div
+                  style={{
+                    position: "relative",
+                    width: "82%",
+                    textAlign: "center",
+                    color: "#fff",
+                    fontSize: window.innerWidth < 600 ? "0.85rem" : window.innerWidth < 900 ? "0.95rem" : "1.05rem",
+                    fontWeight: 600,
+                    letterSpacing: 0.4,
+                    zIndex: 2,
+                    textShadow: "0 3px 10px rgba(0,0,0,0.85)",
+                    lineHeight: 1.25,
+                    userSelect: "none",
+                    overflow: "hidden",
+                    whiteSpace: "nowrap",
+                    textOverflow: "ellipsis",
+                    fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+                    padding: "4px 8px",
+                  }}
+                  title={cat.name}
+                >
+                  {cat.name}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

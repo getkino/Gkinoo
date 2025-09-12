@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AppHeader from './AppHeader';
 
 const platforms = [
 	{
@@ -113,7 +114,7 @@ export function parseM3U(m3uContent) {
 			const logoMatch = line.match(/tvg-logo="([^"]+)"/);
 			const tvgNameMatch = line.match(/tvg-name="([^"]+)"/);
 
-			const fullName = nameMatch ? nameMatch[1].trim() : 'Bilinmeyen';
+			const fullName = nameMatch ? nameMatch[1].trim() : 'Bilinmiyor';
 			const seasonEpisodeMatch = fullName.match(/(\d+\. Sezon \d+\. Bölüm)/);
 
 			current.title = fullName;
@@ -229,121 +230,81 @@ export default function PlatformShowcase({ onBack }) {
 	}, [focusedIdx]);
 
 	return (
-		<div
-			style={{
-				position: 'fixed',
-				inset: 0,
-				background: '#111',
-				zIndex: 9999,
-				display: 'flex',
-				flexDirection: 'column',
-				alignItems: 'center',
-				justifyContent: 'flex-start',
-				overflow: 'auto',
-				padding: '80px 20px 20px 20px',
-			}}
-		>
-			{/* Geri Butonu */}
-			<button
-				onClick={onBack}
-				style={{
-					position: 'absolute',
-					top: window.innerWidth < 600 ? '16px' : '24px',
-					left: window.innerWidth < 600 ? '16px' : '24px',
-					background: 'rgba(0,0,0,0.7)',
-					color: '#fff',
-					border: 'none',
-					borderRadius: '50%',
-					padding: window.innerWidth < 600 ? '8px' : '12px',
-					fontSize: window.innerWidth < 600 ? '18px' : '22px',
-					cursor: 'pointer',
-					zIndex: 1001,
-				}}
-			>
-				<span className="material-icons">arrow_back</span>
-			</button>
-			{/* Platform Grid */}
-			<div
-				ref={gridRef}
-				style={{
-					display: 'grid',
-					gridTemplateColumns: window.innerWidth < 600 
-						? 'repeat(2, 1fr)' 
-						: window.innerWidth < 900 
-						? 'repeat(3, 1fr)' 
-						: window.innerWidth < 1400 
-						? 'repeat(4, 1fr)' 
-						: 'repeat(4, 1fr)',
-					gap: '20px',
-					width: '90vw',
-					maxWidth: '1200px',
-					margin: '0 auto',
-					alignItems: 'center',
-					justifyItems: 'center',
-				}}
-			>
-				{platforms.map((p, idx) => (
-					<div
-						key={p.name}
-						style={{
-							background: hovered === idx || focusedIdx === idx
-								? '#232323'
-								: '#181818',
-							borderRadius: window.innerWidth < 600 ? '12px' : '16px',
-							boxShadow:
-								hovered === idx || focusedIdx === idx
-									? '0 0 24px #febd59'
-									: '0 2px 16px #0005',
-							width: '100%',
-							height: window.innerWidth < 600 ? '120px' : '160px',
-							display: 'flex',
-							alignItems: 'center',
-							justifyContent: 'center',
-							position: 'relative',
-							cursor: 'pointer',
-							transition: 'box-shadow 0.2s, background 0.2s',
-							outline: focusedIdx === idx ? '2px solid #febd59' : 'none'
-						}}
-						tabIndex={0}
-						onMouseEnter={() => setHovered(idx)}
-						onMouseLeave={() => setHovered(null)}
-						onClick={() => handlePlatformClick(p)}
-					>
-						<img
-							src={p.logo}
-							alt={p.name}
+		<div style={{position:'fixed',inset:0,background:'#111',display:'flex',flexDirection:'column',overflow:'auto',padding:0,zIndex:9999}}>
+			<AppHeader active="shows" />
+			<div style={{flex:1,width:'100%',padding:'40px 20px 20px'}}>
+				<div
+					ref={gridRef}
+					style={{
+						display:'grid',
+						gridTemplateColumns:
+							window.innerWidth < 600 ? 'repeat(2,1fr)' :
+							window.innerWidth < 900 ? 'repeat(3,1fr)' :
+							window.innerWidth < 1400 ? 'repeat(4,1fr)' : 'repeat(4,1fr)',
+						gap:'20px',
+						width:'90vw',
+						maxWidth:'1200px',
+						margin:'0 auto',
+						alignItems:'center',
+						justifyItems:'center'
+					}}
+				>
+					{platforms.map((p, idx)=>(
+						<div
+							key={p.name}
 							style={{
-								width: window.innerWidth < 600 ? '60%' : '65%',
-								height: window.innerWidth < 600 ? '60%' : '65%',
-								objectFit: 'contain',
-								borderRadius: '12px',
-								filter: 'drop-shadow(0 2px 8px #0007)',
-								zIndex: 2,
-								position: 'relative',
+								background: (hovered === idx || focusedIdx === idx) ? '#232323' : '#181818',
+								borderRadius: window.innerWidth < 600 ? '12px':'16px',
+								boxShadow: (hovered === idx || focusedIdx === idx) ? '0 0 24px #febd59':'0 2px 16px #0005',
+								width:'100%',
+								height: window.innerWidth < 600 ? '120px':'160px',
+								display:'flex',
+								alignItems:'center',
+								justifyContent:'center',
+								position:'relative',
+								cursor:'pointer',
+								transition:'box-shadow .2s,background .2s',
+								outline: focusedIdx === idx ? '2px solid #febd59':'none'
 							}}
-						/>
-						{(hovered === idx || focusedIdx === idx) && (
-							<video
-								src={p.video}
-								autoPlay
-								loop
-								muted
+							tabIndex={0}
+							onMouseEnter={()=>setHovered(idx)}
+							onMouseLeave={()=>setHovered(null)}
+							onClick={()=>handlePlatformClick(p)}
+						>
+							<img
+								src={p.logo}
+								alt={p.name}
 								style={{
-									position: 'absolute',
-									top: 0,
-									left: 0,
-									width: '100%',
-									height: '100%',
-									objectFit: 'cover',
-									borderRadius: window.innerWidth < 600 ? '12px' : '16px',
-									opacity: 0.6,
-									zIndex: 1,
-									pointerEvents: 'none',
+									width: window.innerWidth < 600 ? '60%':'65%',
+									height: window.innerWidth < 600 ? '60%':'65%',
+									objectFit:'contain',
+									filter:'drop-shadow(0 2px 8px #0007)',
+									zIndex:2,
+									position:'relative'
 								}}
 							/>
-						)}
-					</div>
-				))}
+							{(hovered === idx || focusedIdx === idx) && (
+								<video
+									src={p.video}
+									autoPlay
+									loop
+									muted
+									style={{
+										position:'absolute',
+										inset:0,
+										width:'100%',
+										height:'100%',
+										objectFit:'cover',
+										borderRadius: window.innerWidth < 600 ? '12px':'16px',
+										opacity:.6,
+										zIndex:1,
+										pointerEvents:'none'
+									}}
+								/>
+							)}
+						</div>
+					))}
+				</div>
 			</div>
 		</div>
 	);

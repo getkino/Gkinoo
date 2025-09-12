@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import AppHeader from '../components/AppHeader';
 
 const HomePage = () => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState('dark');
   const [now, setNow] = useState(new Date());
-  const [selectedCard, setSelectedCard] = useState(null); // Seçili kart için state
+  const [selectedCard, setSelectedCard] = useState(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60000);
@@ -59,24 +60,25 @@ const HomePage = () => {
   }, [navigate, selectedCard]);
 
   return (
-    <div style={{
+    <div style={{ 
       minHeight: '100vh',
       background: theme === 'dark' ? '#121212' : '#fff',
       color: theme === 'dark' ? '#fff' : '#333',
-      padding: '20px',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     }}>
-      {/* Header */}
+      <AppHeader active="home" />
+
+      {/* Header with time */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '40px',
-        padding: '0 20px'
+        padding: '20px 20px 0'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <img src="/logo.png" alt="Logo" style={{ height: 40 }} />
           <div>
             <h1 style={{ 
               fontSize: '24px', 
@@ -100,35 +102,6 @@ const HomePage = () => {
             </p>
           </div>
         </div>
-        
-        {/* Ayarlar butonu */}
-        <button
-          onClick={() => navigate('/ayarlar')}
-          aria-label="Ayarlar"
-          style={{
-            background: theme === 'dark' ? '#202020' : '#f2f2f2',
-            border: theme === 'dark' ? '1px solid #2a2a2a' : '1px solid #e5e7eb',
-            borderRadius: '50%',
-            width: 72,
-            height: 72,
-            cursor: 'pointer',
-            fontSize: '30px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: theme === 'dark' ? '#ffffff' : '#111111',
-            boxShadow: theme === 'dark' ? '0 2px 12px rgba(0,0,0,0.45)' : '0 2px 12px rgba(0,0,0,0.1)',
-            transition: 'all .25s'
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.transform = 'translateY(-4px)';
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-        >
-          ⚙️
-        </button>
       </div>
 
       {/* Main Content */}
@@ -139,7 +112,8 @@ const HomePage = () => {
         width: '100%',
         justifyContent: 'flex-start',
         alignItems: 'flex-start',
-        flexWrap: 'wrap'
+        flexWrap: 'wrap',
+        padding: '0 20px'
       }}>
         {/* Main Cards */}
         <div style={{
@@ -206,7 +180,7 @@ const HomePage = () => {
                 background: '#FF4D4D', color: '#fff', padding: '6px 12px', borderRadius: 12,
                 fontWeight: 800, letterSpacing: 0.3
               }}>Canlı</span>
-              <h2 style={{ fontSize: 28, fontWeight: 700, margin: 0, color: theme === 'dark' ? '#fff' : '#333' }}>Tv</h2>
+              <h2 style={{ fontSize: 28, fontWeight: 700, margin: 0, color: theme === 'dark' ? '#fff' : '#333' }}>TV</h2>
             </div>
           </div>
 
