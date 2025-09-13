@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
 // Material UI importları
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -7,6 +8,7 @@ import Box from '@mui/material/Box';
 
 export default function AppHeader({ active }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const isActive = (key) => active === key;
 
@@ -52,7 +54,7 @@ export default function AppHeader({ active }) {
                 color: isActive('home') ? '#222' : '#fff'
               }
             }}
-          >Ana Sayfa</Button>
+          >{t('home')}</Button>
           <Button
             color="inherit"
             onClick={() => navigate('/kategoriler')}
@@ -72,7 +74,7 @@ export default function AppHeader({ active }) {
                 color: isActive('categories') ? '#222' : '#fff'
               }
             }}
-          >Kategoriler</Button>
+          >{t('categories')}</Button>
           <Button
             color="inherit"
             onClick={() => navigate('/platform')}
@@ -92,7 +94,7 @@ export default function AppHeader({ active }) {
                 color: isActive('shows') ? '#222' : '#fff'
               }
             }}
-          >Platformlar</Button>
+          >{t('platforms')}</Button>
           <Button
             color="inherit"
             sx={{
@@ -111,7 +113,7 @@ export default function AppHeader({ active }) {
                 color: isActive('favorites') ? '#222' : '#fff'
               }
             }}
-          >Favoriler</Button>
+          >{t('favorites')}</Button>
           <Button
             color="inherit"
             sx={{
@@ -130,7 +132,27 @@ export default function AppHeader({ active }) {
                 color: isActive('movies') ? '#222' : '#fff'
               }
             }}
-          >Filmler</Button>
+          >{t('movies')}</Button>
+          {/* Diziler butonu eklendi */}
+          <Button
+            color="inherit"
+            sx={{
+              bgcolor: isActive('series') ? '#fff' : 'transparent',
+              color: isActive('series') ? '#222' : '#a0a0a0',
+              fontWeight: isActive('series') ? 600 : 400,
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+              fontSize: 18,
+              minWidth: 120,
+              textTransform: 'none',
+              boxShadow: 'none',
+              '&:hover': {
+                bgcolor: isActive('series') ? '#fff' : 'rgba(255,255,255,0.06)',
+                color: isActive('series') ? '#222' : '#fff'
+              }
+            }}
+          >Diziler</Button>
           <Button
             color="inherit"
             onClick={() => navigate('/ayarlar')}
@@ -151,7 +173,7 @@ export default function AppHeader({ active }) {
               }
             }}
           >
-            Ayarlar
+            {t('settings')}
           </Button>
         </Box>
       </Toolbar>

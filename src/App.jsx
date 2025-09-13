@@ -15,6 +15,7 @@ import CategoryShowcase from "./pages/CategoryShowcase";
 import CategoryDetail from "./pages/CategoryDetail";
 import SettingsPage from './pages/SettingsPage';
 import TmdbMovie from './pages/TmdbMovie';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 const SOURCES = [
   { name: "DMAX", url: "https://raw.githubusercontent.com/getkino/depo/refs/heads/main/DMAX/DMAX.m3u", platform: "DMAX" },
@@ -568,9 +569,11 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <LanguageProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </LanguageProvider>
   );
 }
 

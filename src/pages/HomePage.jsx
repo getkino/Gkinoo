@@ -1,12 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import AppHeader from '../components/AppHeader';
+import axios from 'axios';
 
 const HomePage = () => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState('dark');
   const [now, setNow] = useState(new Date());
   const [selectedCard, setSelectedCard] = useState(null);
+  const [upcoming, setUpcoming] = useState([]);
+  const [hovered, setHovered] = useState(null);
+  const [trailers, setTrailers] = useState({}); // {id: trailerKey}
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60000);
@@ -17,9 +21,9 @@ const HomePage = () => {
     document.body.style.background = theme === 'dark' ? '#121212' : '#fff';
   }, [theme]);
 
-  const handleThemeToggle = () => {
+  function handleThemeToggle() {
     setTheme(t => t === 'dark' ? 'light' : 'dark');
-  };
+  }
 
   // Kumanda desteği için klavye olaylarını dinle
   useEffect(() => {
@@ -59,273 +63,217 @@ const HomePage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate, selectedCard]);
 
+  // TMDB'den yeni çıkacak film ve dizileri çek
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_TMDB_API_KEY;
+    if (!apiKey) return;
+
+    const fetchUpcoming = async () => {
+      try {
+        // Filmler
+        const movieRes = await axios.get(
+          `https://api.themoviedb.org/3/movie/upcoming?api_key=${apiKey}&language=tr-TR&page=1&region=TR`
+        );
+        // Diziler (yeni sezonlar için "air_date" kullanılır)
+        const tvRes = await axios.get(
+          `https://api.themoviedb.org/3/tv/on_the_air?api_key=${apiKey}&language=tr-TR&page=1`
+        );
+        const today = new Date();
+        // Sadece bugünden sonraki filmleri al
+        const movies = movieRes.data.results
+          .filter(item => item.release_date && new Date(item.release_date) >= today)
+          .slice(0, 8)
+          .map(item => ({
+            id: item.id,
+            type: 'movie',
+            img: item.poster_path,
+            backdrop: item.backdrop_path,
+            date: item.release_date,
+            title: item.title,
+            overview: item.overview
+          }));
+        // Dizilerde yeni sezonun ilk bölümü için air_date kullan, bugünden sonraki bölümleri al
+        const tvs = tvRes.data.results
+          .filter(item => {
+            const airDate = item.air_date || item.first_air_date;
+            return airDate && new Date(airDate) >= today;
+          })
+          .slice(0, 8)
+          .map(item => ({
+            id: item.id,
+            type: 'tv',
+            img: item.poster_path,
+            backdrop: item.backdrop_path,
+            date: item.air_date || item.first_air_date,
+            title: item.name,
+            overview: item.overview
+          }));
+        // Tarihe göre sırala ve ilk 8 tanesini göster
+        const combined = [...movies, ...tvs]
+          .filter(i => i.img && i.date)
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .slice(0, 8);
+        setUpcoming(combined);
+      } catch (err) {
+        setUpcoming([]);
+      }
+    };
+    fetchUpcoming();
+  }, []);
+
   return (
-    <div style={{ 
+    <div style={{
       minHeight: '100vh',
       background: theme === 'dark' ? '#121212' : '#fff',
       color: theme === 'dark' ? '#fff' : '#333',
       display: 'flex',
       flexDirection: 'column',
-      fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+      overflow: 'hidden'
     }}>
       <AppHeader active="home" />
 
-      {/* Header with time */}
+      {/* Yeni Çıkacaklar Bölümü */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '40px',
-        padding: '20px 20px 0'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <div>
-            <h1 style={{ 
-              fontSize: '24px', 
-              fontWeight: 'bold',
-              margin: 0,
-              color: theme === 'dark' ? '#fff' : '#333'
-            }}>
-              {now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-            </h1>
-            <p style={{ 
-              fontSize: '14px', 
-              opacity: 0.7, 
-              margin: '5px 0 0 0' 
-            }}>
-              {now.toLocaleDateString('tr-TR', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div style={{
-        display: 'flex',
-        gap: '30px',
-        flex: 1,
         width: '100%',
-        justifyContent: 'flex-start',
-        alignItems: 'flex-start',
-        flexWrap: 'wrap',
+        margin: '0 auto 40px auto',
         padding: '0 20px'
       }}>
-        {/* Main Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, minmax(280px, 1fr))',
-          gridTemplateRows: 'auto',
-          gap: '25px',
-          width: '100%',
-          '@media (max-width: 768px)': {
-            gridTemplateColumns: '1fr',
-            gap: '15px'
-          },
-          '@media (min-width: 769px) and (max-width: 1024px)': {
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '20px'
-          }
+        <h2 style={{
+          color: theme === 'dark' ? '#fff' : '#333',
+          fontSize: 22,
+          fontWeight: 700,
+          marginBottom: 18,
+          marginLeft: 10
         }}>
-          {/* LIVE TV - Sol üst, büyük */}
-          <div
-            data-path="/live-tv"
-            className="card"
-            tabIndex={selectedCard === 0 ? 0 : -1}
-            style={{
-              background: theme === 'dark' 
-                ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(32, 32, 32, 0.8) 100%)' 
-                : 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(255, 255, 255, 0.9) 100%)',
-              backdropFilter: 'blur(20px)',
-              border: theme === 'dark' 
-                ? '1px solid rgba(99, 102, 241, 0.2)' 
-                : '1px solid rgba(99, 102, 241, 0.15)',
-              borderRadius: '32px',
-              padding: '40px 32px',
-              cursor: 'pointer',
-              transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              textAlign: 'left',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: theme === 'dark' 
-                ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.1)' 
-                : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 20px rgba(99, 102, 241, 0.05)',
-              outline: selectedCard === 0 ? '3px solid #00ff00' : 'none' // Seçili kart vurgusu
-            }}
-            onClick={() => navigate('/live-tv')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-12px) scale(1.03)';
-              e.currentTarget.style.boxShadow = theme === 'dark' 
-                ? '0 25px 80px rgba(0, 0, 0, 0.4), 0 0 40px rgba(99, 102, 241, 0.2)' 
-                : '0 25px 80px rgba(0, 0, 0, 0.15), 0 0 40px rgba(99, 102, 241, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0) scale(1)';
-              e.currentTarget.style.boxShadow = theme === 'dark' 
-                ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.1)' 
-                : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 20px rgba(99, 102, 241, 0.05)';
-            }}
-          >
-            <div style={{ fontSize: '56px', marginBottom: '18px' }}>📺</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <span style={{
-                background: '#FF4D4D', color: '#fff', padding: '6px 12px', borderRadius: 12,
-                fontWeight: 800, letterSpacing: 0.3
-              }}>Canlı</span>
-              <h2 style={{ fontSize: 28, fontWeight: 700, margin: 0, color: theme === 'dark' ? '#fff' : '#333' }}>TV</h2>
+          Yakında Gelecek Film & Diziler
+        </h2>
+        <div
+          style={{
+            display: 'flex',
+            gap: 20,
+            overflowX: 'auto',
+            paddingBottom: 16,
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
+          {upcoming.length === 0 && (
+            <div style={{ color: '#888', fontSize: 16 }}>Yükleniyor...</div>
+          )}
+          {upcoming.map((item, i) => (
+            <div
+              key={item.id}
+              tabIndex={0}
+              className="card"
+              style={{
+                flex: '0 0 320px',
+                minWidth: 320,
+                maxWidth: 400,
+                top: 8,
+                left: 8,
+                aspectRatio: '16/9',
+                position: 'relative',
+                borderRadius: 16,
+                overflow: hovered === i ? 'visible' : 'hidden',
+                background: theme === 'dark' ? '#23272f' : '#f3f4f6',
+                border: 'none',
+                outline: selectedCard === i ? '2.5px solid #ffffffff' : 'none',
+                cursor: 'pointer',
+                transition: 'outline 0.18s',
+                zIndex: hovered === i || selectedCard === i ? 2 : 1,
+                backgroundClip: 'padding-box',
+                willChange: undefined,
+              }}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              onFocus={() => setSelectedCard(i)}
+              onBlur={() => setSelectedCard(null)}
+              onClick={() => {
+                // örnek: detay sayfasına yönlendirme yapılabilir
+                // navigate(`/detay/${item.id}`);
+              }}
+            >
+              <img
+                src={`https://image.tmdb.org/t/p/w780${item.backdrop || item.img}`}
+                alt={item.title}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  borderRadius: 16,
+                  transition: 'filter 0.18s'
+                }}
+                loading="lazy"
+              />
+              {(hovered === i || selectedCard === i) && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: 16,
+                  border: '2.5px solid #fff',
+                  boxSizing: 'border-box',
+                  pointerEvents: 'none'
+                }} />
+              )}
+              <div style={{
+                position: 'absolute',
+                left: 0,
+                bottom: 0,
+                width: '100%',
+                padding: '18px 20px 14px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
+                pointerEvents: 'none'
+              }}>
+                <div style={{
+                  color: theme === 'dark' ? '#fff' : '#23272f',
+                  fontWeight: 700,
+                  fontSize: 'clamp(16px, 2.2vw, 22px)',
+                  marginBottom: 2,
+                  letterSpacing: 0.1,
+                  textShadow: theme === 'dark' ? '0 2px 8px #0007' : 'none',
+                  lineHeight: 1.18,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  whiteSpace: 'normal',
+                  minHeight: '2.6em',
+                  maxHeight: '2.6em',
+                  textAlign: 'left',
+                  alignSelf: 'flex-start'
+                }}>
+                  {item.title}
+                </div>
+                <div style={{
+                  width: 32,
+                  height: 3,
+                  background: (hovered === i || selectedCard === i) ? '#fff' : 'transparent',
+                  borderRadius: 2,
+                  margin: '6px 0 8px 0',
+                  transition: 'background 0.18s'
+                }} />
+                <div style={{
+                  color: theme === 'dark' ? '#ffffffff' : '#374151',
+                  fontWeight: 400,
+                  fontSize: 14,
+                  letterSpacing: 0.1,
+                  marginBottom: 0,
+                  lineHeight: 1.2
+                }}>
+                  {item.date
+                    ? `${new Date(item.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })}`
+                    : ''}
+                </div>
+                {/* You can add more info here, e.g. overview or date */}
+              </div>
             </div>
-          </div>
-
-          {/* Movies - Sağ üst */}
-          <div
-            data-path="/kategoriler"
-            className="card"
-            tabIndex={selectedCard === 1 ? 0 : -1}
-            style={{
-              background: theme === 'dark' 
-                ? 'linear-gradient(135deg, rgba(245, 87, 108, 0.15) 0%, rgba(32, 32, 32, 0.8) 100%)' 
-                : 'linear-gradient(135deg, rgba(245, 87, 108, 0.1) 0%, rgba(255, 255, 255, 0.9) 100%)',
-              backdropFilter: 'blur(20px)',
-              border: theme === 'dark' 
-                ? '1px solid rgba(245, 87, 108, 0.2)' 
-                : '1px solid rgba(245, 87, 108, 0.15)',
-              borderRadius: '32px',
-              padding: '40px 32px',
-              cursor: 'pointer',
-              transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              textAlign: 'left',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: theme === 'dark' 
-                ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(245, 87, 108, 0.1)' 
-                : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 20px rgba(245, 87, 108, 0.05)',
-              outline: selectedCard === 1 ? '3px solid #00ff00' : 'none' // Seçili kart vurgusu
-            }}
-            onClick={() => navigate('/kategoriler')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-12px) scale(1.03)';
-              e.currentTarget.style.boxShadow = theme === 'dark' 
-                ? '0 25px 80px rgba(0, 0, 0, 0.4), 0 0 40px rgba(245, 87, 108, 0.2)' 
-                : '0 25px 80px rgba(0, 0, 0, 0.15), 0 0 40px rgba(245, 87, 108, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0) scale(1)';
-              e.currentTarget.style.boxShadow = theme === 'dark' 
-                ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(245, 87, 108, 0.1)' 
-                : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 20px rgba(245, 87, 108, 0.05)';
-            }}
-          >
-            <div style={{ fontSize: '56px', marginBottom: '18px' }}>🍿</div>
-            <h2 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 10px 0', color: theme === 'dark' ? '#fff' : '#333' }}>Filmler</h2>
-          </div>
-
-          {/* Series - Sağ alt */}
-          <div
-            data-path="/platform"
-            className="card"
-            tabIndex={selectedCard === 2 ? 0 : -1}
-            style={{
-              background: theme === 'dark' 
-                ? 'linear-gradient(135deg, rgba(79, 172, 254, 0.15) 0%, rgba(32, 32, 32, 0.8) 100%)' 
-                : 'linear-gradient(135deg, rgba(79, 172, 254, 0.1) 0%, rgba(255, 255, 255, 0.9) 100%)',
-              backdropFilter: 'blur(20px)',
-              border: theme === 'dark' 
-                ? '1px solid rgba(79, 172, 254, 0.2)' 
-                : '1px solid rgba(79, 172, 254, 0.15)',
-              borderRadius: '32px',
-              padding: '40px 32px',
-              cursor: 'pointer',
-              transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              textAlign: 'left',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: theme === 'dark' 
-                ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(79, 172, 254, 0.1)' 
-                : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 20px rgba(79, 172, 254, 0.05)',
-              outline: selectedCard === 2 ? '3px solid #00ff00' : 'none' // Seçili kart vurgusu
-            }}
-            onClick={() => navigate('/platform')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-12px) scale(1.03)';
-              e.currentTarget.style.boxShadow = theme === 'dark' 
-                ? '0 25px 80px rgba(0, 0, 0, 0.4), 0 0 40px rgba(79, 172, 254, 0.2)' 
-                : '0 25px 80px rgba(0, 0, 0, 0.15), 0 0 40px rgba(79, 172, 254, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0) scale(1)';
-              e.currentTarget.style.boxShadow = theme === 'dark' 
-                ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(79, 172, 254, 0.1)' 
-                : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 20px rgba(79, 172, 254, 0.05)';
-            }}
-          >
-            <div style={{ fontSize: '56px', marginBottom: '18px' }}>🚀</div>
-            <h2 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 10px 0', color: theme === 'dark' ? '#fff' : '#333' }}>Diziler</h2>
-          </div>
-
-          {/* Animation - Yeni eklenen kart */}
-          <div
-            data-path="/animasyon"
-            className="card"
-            tabIndex={selectedCard === 3 ? 0 : -1}
-            style={{
-              background: theme === 'dark' 
-                ? 'linear-gradient(135deg, rgba(138, 99, 247, 0.15) 0%, rgba(32, 32, 32, 0.8) 100%)' 
-                : 'linear-gradient(135deg, rgba(138, 99, 247, 0.1) 0%, rgba(255, 255, 255, 0.9) 100%)',
-              backdropFilter: 'blur(20px)',
-              border: theme === 'dark' 
-                ? '1px solid rgba(138, 99, 247, 0.2)' 
-                : '1px solid rgba(138, 99, 247, 0.15)',
-              borderRadius: '32px',
-              padding: '40px 32px',
-              cursor: 'pointer',
-              transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              textAlign: 'left',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: theme === 'dark' 
-                ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(138, 99, 247, 0.1)' 
-                : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 20px rgba(138, 99, 247, 0.05)',
-              outline: selectedCard === 3 ? '3px solid #00ff00' : 'none' // Seçili kart vurgusu
-            }}
-            onClick={() => navigate('/animasyon')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-12px) scale(1.03)';
-              e.currentTarget.style.boxShadow = theme === 'dark' 
-                ? '0 25px 80px rgba(0, 0, 0, 0.4), 0 0 40px rgba(138, 99, 247, 0.2)' 
-                : '0 25px 80px rgba(0, 0, 0, 0.15), 0 0 40px rgba(138, 99, 247, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0) scale(1)';
-              e.currentTarget.style.boxShadow = theme === 'dark' 
-                ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(138, 99, 247, 0.1)' 
-                : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 20px rgba(138, 99, 247, 0.05)';
-            }}
-          >
-            <div style={{ fontSize: '56px', marginBottom: '18px' }}>🧸</div>
-            <h2 style={{ fontSize: '28px', fontWeight: '700', margin: '0 0 10px 0', color: theme === 'dark' ? '#fff' : '#333' }}>
-              Çizgi Film
-            </h2>
-          </div>
+          ))}
         </div>
       </div>
     </div>
