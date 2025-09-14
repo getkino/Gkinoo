@@ -5,20 +5,11 @@ import SimpleHlsPlayer from './SimpleHlsPlayer';
 // TMDB API anahtarınızı buraya ekleyin
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
-const getColumns = () => {
-  if (window.innerWidth < 600) return 2;
-  if (window.innerWidth < 900) return 3;
-  if (window.innerWidth < 1400) return 5;
-  if (window.innerWidth < 1800) return 7;
-  return 9;
-};
-
 export default function PlatformSeriesDetail() {
   const { platformName, seriesName } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const { platform, episodes } = location.state || {};
-  const [columns, setColumns] = useState(getColumns);
   const [playerUrl, setPlayerUrl] = useState(null);
   const [tmdbData, setTmdbData] = useState(null);
   const [tmdbLoading, setTmdbLoading] = useState(true);
@@ -26,11 +17,12 @@ export default function PlatformSeriesDetail() {
   const [certification, setCertification] = useState(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const itemRefs = useRef([]);
+  const [tmdbSeason, setTmdbSeason] = useState(null);
+  const [tmdbSeasonLoading, setTmdbSeasonLoading] = useState(false);
+  const [episodeStills, setEpisodeStills] = useState({});
+  const [episodeNames, setEpisodeNames] = useState({});
 
-  // Memoized episodes
   const episodesList = useMemo(() => episodes || [], [episodes]);
-
-  // Tekrarlı başlığı temizlemek için yardımcılar (geliştirilmiş)
   const decodedSeries = useMemo(() => decodeURIComponent(seriesName || ''), [seriesName]);
 
   const normalizeText = useCallback((s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim(), []);
@@ -38,13 +30,10 @@ export default function PlatformSeriesDetail() {
 
   const canonicalizeSeasonEp = useCallback((s) => {
     if (!s) return '';
-    // 9. Sezon 3. Bölüm
     let m = s.match(/(\d+)\s*\.?\s*sezon\s*(\d+)\s*\.?\s*bölüm/i);
     if (m) return `${parseInt(m[1], 10)}. Sezon ${parseInt(m[2], 10)}. Bölüm`;
-    // Sezon 9 Bölüm 3
     m = s.match(/sezon\s*(\d+)\s*bölüm\s*(\d+)/i);
     if (m) return `${parseInt(m[1], 10)}. Sezon ${parseInt(m[2], 10)}. Bölüm`;
-    // S09E03, S9E3, S 9 E 3
     m = s.match(/s\s*(\d{1,2})\s*e\s*(\d{1,3})/i) || s.match(/s(\d{1,2})e(\d{1,3})/i);
     if (m) return `${parseInt(m[1], 10)}. Sezon ${parseInt(m[2], 10)}. Bölüm`;
     return '';
@@ -52,7 +41,6 @@ export default function PlatformSeriesDetail() {
 
   const extractSeasonEp = useCallback((title) => {
     if (!title) return '';
-    // Başlıktan TR tarzı veya SxxEyy desenini ayıkla
     const patterns = [
       /(\d+)\s*\.?\s*sezon\s*(\d+)\s*\.?\s*bölüm/i,
       /sezon\s*(\d+)\s*bölüm\s*(\d+)/i,
@@ -61,10 +49,8 @@ export default function PlatformSeriesDetail() {
     ];
     for (const p of patterns) {
       const m = title.match(p);
-      if (m) {
-        if (m.length === 3) {
-          return `${parseInt(m[1], 10)}. Sezon ${parseInt(m[2], 10)}. Bölüm`;
-        }
+      if (m && m.length === 3) {
+        return `${parseInt(m[1], 10)}. Sezon ${parseInt(m[2], 10)}. Bölüm`;
       }
     }
     return '';
@@ -80,15 +66,10 @@ export default function PlatformSeriesDetail() {
     const title = (bolum?.title || '').trim();
     const seasonEpRaw = (bolum?.seasonEpisode || '').trim();
     const seasonEp = canonicalizeSeasonEp(seasonEpRaw) || extractSeasonEp(title);
-
     let cleaned = removeSeriesPrefix(title);
-
-    // Başlık Sezon/Bölüm ifadesini içeriyorsa sadece onu göster
     if (seasonEp && normalizeText(cleaned).includes(normalizeText(seasonEp))) {
       return seasonEp;
     }
-
-    // Sezon/Bölüm çıkarılamadıysa veya başlıkta yoksa, temizlenmiş başlığı kullan
     return cleaned || seasonEp || title;
   }, [canonicalizeSeasonEp, extractSeasonEp, removeSeriesPrefix, normalizeText]);
 
@@ -100,96 +81,73 @@ export default function PlatformSeriesDetail() {
     return normalizeText(titleText) !== normalizeText(seasonEp) && !normalizeText(titleText).includes(normalizeText(seasonEp));
   }, [getEpisodeTitle, canonicalizeSeasonEp, extractSeasonEp, normalizeText]);
 
-  // Callbacks
-  const handleBackClick = useCallback(() => navigate(-1), [navigate]);
-  
-  const handleEpisodeClick = useCallback((url) => {
-    setPlayerUrl(url);
+  const normalizeDiacritics = useCallback(
+    (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
+    []
+  );
+
+  const isGenericEpName = useCallback((name) => {
+    const n = normalizeDiacritics(name || '').toLowerCase().trim();
+    if (!n) return true;
+    return /\b(bolum|bölüm|episode|ep)\s*\d+\b/.test(n) || /^bölüm$/.test(n);
+  }, [normalizeDiacritics]);
+
+  const parseSeasonEpisode = useCallback((seasonEpisode, title) => {
+    const src = `${seasonEpisode || ''} ${title || ''}`;
+    const s = normalizeDiacritics(src).toLowerCase().replace(/\s+/g, ' ').trim();
+    let m =
+      s.match(/(\d+)\s*\.?\s*sezon\s*(\d+)\s*\.?\s*bo?lu?m\b/) ||
+      s.match(/sezon\s*(\d+)\s*bo?lu?m\s*(\d+)\b/);
+    if (m) return { season: parseInt(m[1], 10), episode: parseInt(m[2], 10) };
+    m = s.match(/\bs\s*(\d{1,2})\s*e\s*(\d{1,3})\b/) || s.match(/\bs(\d{1,2})e(\d{1,3})\b/);
+    if (m) return { season: parseInt(m[1], 10), episode: parseInt(m[2], 10) };
+    m = s.match(/(?:^|\s)sezon\s*(\d+)\b/);
+    const seasonOnly = m ? parseInt(m[1], 10) : null;
+    m = s.match(/(?:^|\s)bo?lu?m\s*(\d+)\b/) || s.match(/\bep(?:isode)?\s*(\d+)\b/);
+    const episodeOnly = m ? parseInt(m[1], 10) : null;
+    return { season: seasonOnly || null, episode: episodeOnly || null };
+  }, [normalizeDiacritics]);
+
+  const formatSeasonEpTr = useCallback((s, e) => {
+    if (s && e) return `${s}. Sezon ${e}. Bölüm`;
+    if (s) return `${s}. Sezon`;
+    if (e) return `Bölüm ${e}`;
+    return '';
   }, []);
 
-  const handlePlayerClose = useCallback(() => {
-    setPlayerUrl(null);
-  }, []);
-
-  // Responsive columns
-  useEffect(() => {
-    const handleResize = () => {
-      setColumns(getColumns());
+  const stripSeasonEpTokens = useCallback((t) => {
+    let x = removeSeriesPrefix(t || '');
+    const n = normalizeDiacritics(x).toLowerCase();
+    if (/\d+\s*\.?\s*sezon\s*\d+\s*\.?\s*bo?lu?m/.test(n)) {
+      x = x.replace(/(\d+)\s*\.?\s*Sezon\s*(\d+)\s*\.?\s*Bölüm/gi, '')
+           .replace(/Sezon\s*(\d+)\s*Bölüm\s*(\d+)/gi, '');
     }
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    x = x
+      .replace(/\bS\s*\d{1,2}\s*E\s*\d{1,3}\b/gi, '')
+      .replace(/\bS\d{1,2}E\d{1,3}\b/gi, '')
+      .replace(/Sezon\s*\d+/gi, '')
+      .replace(/Bölüm\s*\d+/gi, '')
+      .replace(/Bolum\s*\d+/gi, '')
+      .replace(/Episode\s*\d+/gi, '')
+      .replace(/Ep\s*\d+/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return x;
+  }, [removeSeriesPrefix, normalizeDiacritics]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (playerUrl) {
-        // Player açıkken sadece ESC tuşunu dinle
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          handlePlayerClose();
-        }
-        return;
-      }
+  const handleBackClick = useCallback(() => navigate(-1), [navigate]);
+  const handleEpisodeClick = useCallback((url) => { setPlayerUrl(url); }, []);
+  const handlePlayerClose = useCallback(() => { setPlayerUrl(null); }, []);
 
-      if (episodesList.length === 0) return;
-
-      // Sadece uzaktan kumanda tuşlarını kabul et
-      const allowedKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape', 'Backspace'];
-      if (!allowedKeys.includes(e.key)) return;
-
-      let newIndex = focusedIndex;
-      const maxIndex = episodesList.length - 1;
-
-      switch (e.key) {
-        case 'ArrowUp':
-          e.preventDefault();
-          newIndex = Math.max(0, focusedIndex - columns);
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          newIndex = Math.min(maxIndex, focusedIndex + columns);
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          newIndex = Math.max(0, focusedIndex - 1);
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          newIndex = Math.min(maxIndex, focusedIndex + 1);
-          break;
-        case 'Enter':
-          e.preventDefault();
-          const selectedEpisode = episodesList[focusedIndex];
-          if (selectedEpisode?.url) {
-            handleEpisodeClick(selectedEpisode.url);
-          }
-          break;
-        case 'Escape':
-          e.preventDefault();
-          handleBackClick();
-          break;
-      }
-
-      if (newIndex !== focusedIndex) {
-        setFocusedIndex(newIndex);
-        itemRefs.current[newIndex]?.focus();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [focusedIndex, columns, episodesList, playerUrl, handleBackClick, handleEpisodeClick, handlePlayerClose]);
-
-  // TMDB'den dizi verisi çek
   useEffect(() => {
     async function fetchTmdb() {
       setTmdbLoading(true);
       try {
         const decodedName = decodeURIComponent(seriesName);
         const searchRes = await fetch(
-          `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(decodedName)}&language=tr`
+          `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(decodedName)}&language=tr-TR`
         );
+        if (!searchRes.ok) throw new Error(`HTTP error! status: ${searchRes.status}`);
         const searchJson = await searchRes.json();
         let show = null;
         if (searchJson.results && searchJson.results.length > 0) {
@@ -201,20 +159,18 @@ export default function PlatformSeriesDetail() {
         }
         if (show) {
           const detailRes = await fetch(
-            `https://api.themoviedb.org/3/tv/${show.id}?api_key=${TMDB_API_KEY}&language=tr&append_to_response=credits,content_ratings`
+            `https://api.themoviedb.org/3/tv/${show.id}?api_key=${TMDB_API_KEY}&language=tr-TR&append_to_response=credits,content_ratings,translations`
           );
+          if (!detailRes.ok) throw new Error(`HTTP error! status: ${detailRes.status}`);
           const detailJson = await detailRes.json();
           setTmdbData(detailJson);
-
-          // Sertifikasyon bilgisini ayarla
           const trCertification = detailJson.content_ratings?.results?.find(r => r.iso_3166_1 === 'TR');
           const usCertification = detailJson.content_ratings?.results?.find(r => r.iso_3166_1 === 'US');
           setCertification(trCertification?.rating || usCertification?.rating || null);
-
-          // Akış servislerini çek
           const watchRes = await fetch(
             `https://api.themoviedb.org/3/tv/${show.id}/watch/providers?api_key=${TMDB_API_KEY}`
           );
+          if (!watchRes.ok) throw new Error(`HTTP error! status: ${watchRes.status}`);
           const watchJson = await watchRes.json();
           setWatchProviders(watchJson.results);
         } else {
@@ -222,7 +178,8 @@ export default function PlatformSeriesDetail() {
           setWatchProviders(null);
           setCertification(null);
         }
-      } catch {
+      } catch (error) {
+        console.error('TMDB fetch error:', error);
         setTmdbData(null);
         setWatchProviders(null);
         setCertification(null);
@@ -232,247 +189,626 @@ export default function PlatformSeriesDetail() {
     fetchTmdb();
   }, [seriesName]);
 
+  const getSeasonNumber = useCallback((bolum) => {
+    const raw = (bolum?.seasonEpisode || '').toString();
+    let m =
+      raw.match(/(\d+)\s*\.?\s*sezon/i) ||
+      raw.match(/s\s*(\d{1,2})/i) ||
+      (bolum?.title || '').toString().match(/(\d+)\s*\.?\s*sezon/i) ||
+      (bolum?.title || '').toString().match(/s\s*(\d{1,2})/i);
+    return m ? parseInt(m[1], 10) : null;
+  }, []);
+
+  const seasons = useMemo(() => {
+    const set = new Set();
+    episodesList.forEach(b => {
+      const sn = getSeasonNumber(b);
+      if (sn) set.add(sn);
+    });
+    const arr = [...set].sort((a, b) => a - b);
+    if (arr.length === 0 && (tmdbData?.number_of_seasons ?? 0) > 0) {
+      for (let i = 1; i <= tmdbData.number_of_seasons; i++) arr.push(i);
+    }
+    return arr.length ? arr : [1];
+  }, [episodesList, tmdbData?.number_of_seasons, getSeasonNumber]);
+
+  const [selectedSeason, setSelectedSeason] = useState(1);
+
+  useEffect(() => {
+    setSelectedSeason(seasons[0] || 1);
+  }, [seasons]);
+
+  useEffect(() => {
+    if (!tmdbData?.id || !selectedSeason) return;
+    let aborted = false;
+    async function fetchSeason() {
+      try {
+        setTmdbSeasonLoading(true);
+        const res = await fetch(
+          `https://api.themoviedb.org/3/tv/${tmdbData.id}/season/${selectedSeason}?api_key=${TMDB_API_KEY}&language=tr-TR&append_to_response=images`
+        );
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const json = await res.json();
+        if (!aborted) setTmdbSeason(json);
+      } catch (error) {
+        console.error('Season fetch error:', error);
+        if (!aborted) setTmdbSeason(null);
+      } finally {
+        if (!aborted) setTmdbSeasonLoading(false);
+      }
+    }
+    fetchSeason();
+    return () => { aborted = true; };
+  }, [tmdbData?.id, selectedSeason]);
+
+  const getEpisodeNumber = useCallback((bolum) => {
+    const s = ((bolum?.seasonEpisode || '') + ' ' + (bolum?.title || '')).toString();
+    let m =
+      s.match(/sezon\s*\d+\s*bölüm\s*(\d+)/i) ||
+      s.match(/(\d+)\s*\.?\s*sezon\s*(\d+)\s*\.?\s*bölüm/i) ||
+      s.match(/s\d+\s*e\s*(\d+)/i) ||
+      s.match(/s(\d{1,2})e(\d{1,3})/i) ||
+      s.match(/bölüm\s*(\d+)/i) ||
+      s.match(/\bep(?:isode)?\s*(\d+)\b/i);
+    if (!m) return null;
+    const last = m[m.length - 1];
+    const n = parseInt(last, 10);
+    return Number.isFinite(n) ? n : null;
+  }, []);
+
+  const tmdbEpByNumber = useMemo(() => {
+    const map = new Map();
+    tmdbSeason?.episodes?.forEach(ep => map.set(ep.episode_number, ep));
+    return map;
+  }, [tmdbSeason]);
+
+  const filteredEpisodes = useMemo(() => {
+    if (episodesList.length > 0) {
+      const firstSeason = seasons[0] || 1;
+      return episodesList.filter(b => {
+        const { season } = parseSeasonEpisode(b?.seasonEpisode, b?.title);
+        return season ? season === selectedSeason : selectedSeason === firstSeason;
+      });
+    }
+    if (tmdbSeason?.episodes?.length > 0) {
+      return tmdbSeason.episodes.map(ep => ({
+        title: ep.name || `Bölüm ${ep.episode_number}`,
+        seasonEpisode: `${selectedSeason}. Sezon ${ep.episode_number}. Bölüm`,
+        logo: ep.still_path ? `https://image.tmdb.org/t/p/w780${ep.still_path}` : null,
+        description: ep.overview || '',
+        duration: ep.runtime,
+        url: null,
+        __fromTmdb: true,
+        __episodeNumber: ep.episode_number
+      }));
+    }
+    return [];
+  }, [episodesList, seasons, selectedSeason, tmdbSeason, parseSeasonEpisode]);
+
+  // Bölüm isimleri ve resimleri TMDB'den çek
+  useEffect(() => {
+    if (!tmdbData?.id || filteredEpisodes.length === 0) return;
+    let aborted = false;
+
+    const fetchEpisodeMeta = async (seasonNum, epNum, retries = 2) => {
+      try {
+        const url = `https://api.themoviedb.org/3/tv/${tmdbData.id}/season/${seasonNum}/episode/${epNum}?api_key=${TMDB_API_KEY}&language=tr-TR&append_to_response=translations,images`;
+        const res = await fetch(url);
+        if (!res.ok && retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchEpisodeMeta(seasonNum, epNum, retries - 1);
+        }
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const json = await res.json();
+
+        // İsim: translations önceliği: tr-TR > tr > en-US > en > json.name
+        const translations = json?.translations?.translations || [];
+        const pickExact = (lang, region) => {
+          const t = translations.find(x => x.iso_639_1 === lang && x.iso_3166_1 === region && x?.data?.name);
+          return t?.data?.name || null;
+        };
+        const pickLang = (lang) => {
+          const t = translations.find(x => x.iso_639_1 === lang && x?.data?.name);
+          return t?.data?.name || null;
+        };
+        const tName =
+          pickExact('tr', 'TR') ||
+          pickLang('tr') ||
+          pickExact('en', 'US') ||
+          pickLang('en') ||
+          json?.name ||
+          null;
+
+        const name = tName ? stripSeasonEpTokens(tName) : null;
+
+        // Resim: images/stills içinden ilk still veya still_path
+        const stillPath = json?.images?.stills?.[0]?.file_path || json?.still_path || null;
+        const stillUrl = stillPath ? `https://image.tmdb.org/t/p/w780${stillPath}` : null;
+
+        return { name, stillUrl };
+      } catch (error) {
+        console.error(`Error fetching meta for S${seasonNum}E${epNum}:`, error);
+        return { name: null, stillUrl: null };
+      }
+    };
+
+    (async () => {
+      const nameUpdates = {};
+      const stillUpdates = {};
+
+      // Paralel API çağrıları için Promise dizisi
+      const promises = filteredEpisodes.map(async (b) => {
+        if (aborted) return null;
+
+        const { season: snParsed, episode: epParsed } = parseSeasonEpisode(b?.seasonEpisode, b?.title);
+        const seasonKey = snParsed || selectedSeason;
+        const epNum = epParsed ?? b?.__episodeNumber ?? null;
+        if (!seasonKey || !epNum) return null;
+
+        const key = `${seasonKey}-${epNum}`;
+        const tmdbMatch = epNum ? (tmdbSeason?.episodes || []).find(e => e.episode_number === epNum) : null;
+
+        // İsim ve resim cache kontrolü
+        const needsFetch = episodeNames[key] === undefined || episodeStills[key] === undefined;
+
+        if (!needsFetch && (b?.logo || tmdbMatch?.still_path)) return null;
+
+        const { name, stillUrl } = await fetchEpisodeMeta(seasonKey, epNum);
+        if (aborted) return null;
+
+        // İsim
+        const fromPlatform = stripSeasonEpTokens(b?.title || '');
+        const fromSeason = stripSeasonEpTokens(tmdbMatch?.name || '');
+        const finalName =
+          (name && !isGenericEpName(name) && name) ||
+          (fromSeason && !isGenericEpName(fromSeason) && fromSeason) ||
+          (fromPlatform && !isGenericEpName(fromPlatform) && fromPlatform) ||
+          '';
+
+        nameUpdates[key] = finalName;
+
+        // Resim
+        if (episodeStills[key] === undefined && !b?.logo) {
+          stillUpdates[key] = stillUrl || (tmdbMatch?.still_path ? `https://image.tmdb.org/t/p/w780${tmdbMatch.still_path}` : null);
+        }
+
+        return null;
+      });
+
+      await Promise.all(promises);
+
+      if (!aborted && Object.keys(nameUpdates).length) {
+        setEpisodeNames(prev => ({ ...prev, ...nameUpdates }));
+      }
+      if (!aborted && Object.keys(stillUpdates).length) {
+        setEpisodeStills(prev => ({ ...prev, ...stillUpdates }));
+      }
+    })();
+
+    return () => { aborted = true; };
+  }, [tmdbData?.id, filteredEpisodes, tmdbSeason?.episodes, selectedSeason, episodeNames, episodeStills, parseSeasonEpisode, stripSeasonEpTokens, isGenericEpName]);
+
+  useEffect(() => {
+    setFocusedIndex(0);
+    setTimeout(() => itemRefs.current[0]?.focus(), 0);
+  }, [selectedSeason, filteredEpisodes.length]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (playerUrl) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          handlePlayerClose();
+        }
+        return;
+      }
+
+      // Form alanlarında (select/input/textarea/contenteditable) iken global kısayollar devre dışı
+      const ae = document.activeElement;
+      const tag = (ae?.tagName || '').toLowerCase();
+      const isFormField = tag === 'select' || tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable);
+      if (isFormField) return;
+
+      const allowedKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Enter', 'Escape', 'Backspace'];
+      if (!allowedKeys.includes(e.key)) return;
+
+      // Sezon değiştirme: Sol/Sağ ve PageUp/PageDown
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        const idx = seasons.findIndex(s => s === selectedSeason);
+        if (idx > 0) setSelectedSeason(seasons[idx - 1]);
+        return;
+      }
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        e.preventDefault();
+        const idx = seasons.findIndex(s => s === selectedSeason);
+        if (idx >= 0 && idx < seasons.length - 1) setSelectedSeason(seasons[idx + 1]);
+        return;
+      }
+
+      // Bölüm listesi boşsa sadece geri kısayollarını işle
+      const hasEpisodes = filteredEpisodes.length > 0;
+
+      let newIndex = focusedIndex;
+      const maxIndex = hasEpisodes ? filteredEpisodes.length - 1 : -1;
+
+      switch (e.key) {
+        case 'ArrowUp':
+          if (!hasEpisodes) return;
+          e.preventDefault();
+          newIndex = Math.max(0, focusedIndex - 1);
+          break;
+        case 'ArrowDown':
+          if (!hasEpisodes) return;
+          e.preventDefault();
+          newIndex = Math.min(maxIndex, focusedIndex + 1);
+          break;
+        case 'Enter':
+          if (!hasEpisodes) return;
+          e.preventDefault();
+          const selectedEpisode = filteredEpisodes[focusedIndex];
+          if (selectedEpisode?.url) handleEpisodeClick(selectedEpisode.url);
+          break;
+        case 'Escape':
+        case 'Backspace':
+          e.preventDefault();
+          handleBackClick();
+          break;
+      }
+
+      if (hasEpisodes && newIndex !== focusedIndex) {
+        setFocusedIndex(newIndex);
+        itemRefs.current[newIndex]?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedIndex, filteredEpisodes, playerUrl, handleBackClick, handleEpisodeClick, handlePlayerClose, seasons, selectedSeason]);
+
+  const runtimeMin = tmdbData?.episode_run_time?.[0];
+
+  // En iyi overview'ü seç
+  const seriesOverview = useMemo(() => {
+    const direct = tmdbData?.overview?.trim?.();
+    if (direct) return direct;
+    const translations = tmdbData?.translations?.translations || [];
+    const pickExact = (lang, region) => {
+      const t = translations.find(x => x.iso_639_1 === lang && x.iso_3166_1 === region && x?.data?.overview);
+      return t?.data?.overview?.trim?.();
+    };
+    const pickLang = (lang) => {
+      const t = translations.find(x => x.iso_639_1 === lang && x?.data?.overview);
+      return t?.data?.overview?.trim?.();
+    };
+    return (
+      pickExact('tr','TR') ||
+      pickLang('tr') ||
+      pickExact('en','US') ||
+      pickLang('en') ||
+      ''
+    );
+  }, [tmdbData]);
+
+  // US ve TR sertifikalarını yaşa çevir
+  const mapCertToAge = useCallback((raw) => {
+    const r = (raw || '').toUpperCase().trim();
+    // Sayısal (TR formatları: 7+, 13+, 18+ vb.)
+    const m = r.match(/(\d{1,2})\s*\+?/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (Number.isFinite(n)) return n;
+    }
+    // US TV
+    if (r.startsWith('TV-MA')) return 17;
+    if (r.startsWith('TV-14')) return 14;
+    if (r.startsWith('TV-PG')) return 10;
+    if (r.startsWith('TV-Y7')) return 7;
+    if (r.startsWith('TV-Y')) return 0;
+    // US film
+    if (r === 'NC-17') return 18;
+    if (r === 'R') return 17;
+    if (r === 'PG-13') return 13;
+    if (r === 'PG') return 10;
+    if (r === 'G') return 0;
+    return null;
+  }, []);
+
+  // Yaş ve şiddet bayraklarını hesapla
+  const ageViolence = useMemo(() => {
+    const ratings = tmdbData?.content_ratings?.results || [];
+    const tr = ratings.find(x => x.iso_3166_1 === 'TR')?.rating || '';
+    const us = ratings.find(x => x.iso_3166_1 === 'US')?.rating || '';
+    const raw = tr || us || '';
+    let age = mapCertToAge(raw);
+    if (age == null && tmdbData?.adult) age = 18;
+    const label = (age != null) ? `${age}+` : (raw || '');
+
+    // US TV alt tanımları (D L S V FV) çoğu zaman TMDB'de yer almaz.
+    // V/FV içeren bir değer yakalanırsa şiddet işaretle, aksi halde yaş >= 16 ise şiddet rozetini göster.
+    const hasViolenceFlag = /\bV\b|\bFV\b/i.test(raw);
+    const violent = hasViolenceFlag || (age != null && age >= 16);
+
+    return { age, label, violent };
+  }, [tmdbData, mapCertToAge]);
+
   return (
-    <div style={{background:'#111', minHeight:'100vh', color:'#fff', padding:'32px', position:'relative'}}>
-      {/* TMDB Dizi Detayı ve back butonu yan yana */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '32px',
-        marginBottom: '40px',
-        background: tmdbData?.backdrop_path 
-          ? `url(https://image.tmdb.org/t/p/original${tmdbData.backdrop_path})`
-          : 'linear-gradient(90deg, #181818 60%, #232323 100%)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'local',
-        borderRadius: '18px',
-        boxShadow: '0 4px 32px #0007',
-        padding: '28px 36px 28px 24px',
-        position: 'relative',
-        minHeight: '260px',
-        overflow: 'hidden'
-      }}>
-        {/* Gradient overlay for text readability */}
-        {tmdbData?.backdrop_path && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.8) 30%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.2) 100%)',
-            borderRadius: '18px',
-            zIndex: 0
-          }} />
-        )}
-        
-        <button
-          onClick={handleBackClick}
-          style={{
-            background: 'rgba(0,0,0,0.8)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '50%',
-            padding: '12px',
-            fontSize: '22px',
-            cursor: 'pointer',
-            zIndex: 2,
-            marginRight: '8px',
-            alignSelf: 'flex-start',
-            position: 'relative'
-          }}
-        >
-          <span className="material-icons">arrow_back</span>
-        </button>
-        {tmdbLoading ? (
-          <div style={{color:'#febd59', fontWeight:'bold', fontSize:'18px', zIndex: 1, position: 'relative'}}>Bilgiler yükleniyor...</div>
-        ) : tmdbData ? (
-          <>
-            {tmdbData.poster_path && (
-              <img
-                src={`https://image.tmdb.org/t/p/w300${tmdbData.poster_path}`}
-                alt={tmdbData.name}
-                style={{
-                  width: '200px',
-                  height: '270px',
-                  objectFit: 'cover',
-                  borderRadius: '16px',
-                  background: '#222',
-                  marginRight: '28px',
-                  boxShadow: '0 4px 24px #000a',
-                  zIndex: 1,
-                  position: 'relative'
-                }}
-                onError={e => { e.target.style.display = 'none'; }}
-              />
-            )}
-            <div style={{flex: 1, minWidth: 0, zIndex: 1, position: 'relative'}}>
-              <div style={{fontWeight:'bold', fontSize:'2rem', marginBottom:'8px', color:'#febd59', letterSpacing: '0.5px', textShadow:'0 2px 12px #000'}}>
-                {tmdbData.name}
-              </div>
-              <div style={{color:'#fff', fontSize:'1.1rem', marginBottom:'10px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap'}}> 
-                <span style={{color:'#ffd700', background:'rgba(255,215,0,0.25)', padding:'4px 10px', borderRadius:'8px', fontWeight:'600', fontSize:'1rem', display:'flex', alignItems:'center', gap:'4px', backdropFilter:'blur(6px)', border:'1px solid rgba(255,215,0,0.3)'}}>
-                  <span className="material-icons" style={{fontSize:'18px', verticalAlign:'middle'}}>star</span>
-                  {tmdbData.vote_average?.toFixed(1)}
-                </span>
-                {certification && (
-                  <span style={{color:'#ff6b6b', background:'rgba(255,107,107,0.25)', padding:'4px 10px', borderRadius:'8px', fontSize:'1rem', fontWeight:'600', backdropFilter:'blur(6px)', border:'1px solid rgba(255,107,107,0.3)'}}>
-                    {certification}
-                  </span>
-                )}
-                <span style={{textShadow:'0 2px 8px #000'}}>{tmdbData.genres?.map(g => g.name).join(', ')}</span>
-              </div>
-              {tmdbData.overview && (
-                <div style={{
-                  fontSize:'1.08rem',
-                  marginBottom:'14px',
-                  color:'#fff',
-                  lineHeight: 1.6,
-                  maxHeight: '90px',
-                  overflow: 'auto',
-                  textShadow:'0 2px 8px #000'
-                }}>
-                  {tmdbData.overview}
-                </div>
-              )}
-              <div style={{display:'flex', gap:'18px', flexWrap:'wrap', marginBottom:'10px'}}>
-                {tmdbData.first_air_date && (
-                  <div style={{fontSize:'1rem', textShadow:'0 2px 8px #000', color:'#fff'}}>
-                    <b style={{color:'#febd59'}}>Yayın Yılı:</b> {tmdbData.first_air_date.slice(0,4)}
-                  </div>
-                )}
-                {tmdbData.status && (
-                  <div style={{fontSize:'1rem', textShadow:'0 2px 8px #000', color:'#fff'}}>
-                    <b style={{color:'#febd59'}}>Durum:</b> {
-                      tmdbData.status === 'Returning Series' ? 'Devam Ediyor' :
-                      tmdbData.status === 'Ended' ? 'Sona Erdi' :
-                      tmdbData.status === 'Canceled' ? 'İptal Edildi' :
-                      tmdbData.status === 'In Production' ? 'Yapım Aşamasında' :
-                      tmdbData.status
-                    }
-                  </div>
-                )}
-                {watchProviders && (watchProviders.TR?.flatrate?.length > 0 || watchProviders.US?.flatrate?.length > 0) && (
-                  <div style={{fontSize:'1rem', textShadow:'0 2px 8px #000', color:'#fff'}}>
-                    <b style={{color:'#febd59'}}>Akış:</b> {
-                      watchProviders.TR?.flatrate?.map(p => p.provider_name).join(', ') ||
-                      watchProviders.US?.flatrate?.map(p => p.provider_name).join(', ')
-                    }
-                  </div>
-                )}
-              </div>
-              {tmdbData.credits?.cast?.length > 0 && (
-                <div style={{fontSize:'1rem', marginBottom:'8px', display:'flex', flexDirection:'column', gap:'6px'}}>
-                  <b style={{color:'#febd59', textShadow:'0 2px 8px #000'}}>Oyuncular:</b>
-                  <div style={{display:'flex', flexWrap:'wrap', gap:'18px', marginTop:'8px'}}>
-                    {tmdbData.credits.cast.slice(0,6).map((actor, index) => (
-                      <div key={actor.id} style={{
-                        display:'flex',
-                        alignItems:'center',
-                        gap:'8px',
-                        background:'rgba(0,0,0,0.7)',
-                        borderRadius:'8px',
-                        padding:'4px 10px 4px 4px',
-                        boxShadow:'0 2px 12px #000',
-                        backdropFilter:'blur(8px)',
-                        border:'1px solid rgba(255,255,255,0.1)'
-                      }}>
-                        {actor.profile_path && (
-                          <img
-                            src={`https://image.tmdb.org/t/p/w92${actor.profile_path}`}
-                            alt={actor.name}
-                            style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '50%',
-                              objectFit: 'cover',
-                              background: '#222',
-                              border: '1.5px solid #febd59'
-                            }}
-                            onError={e => { e.target.style.display = 'none'; }}
-                          />
-                        )}
-                        <a 
-                          href={`https://www.themoviedb.org/person/${actor.id}-${actor.name.toLowerCase().replace(/\s+/g, '-')}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          style={{color:'#febd59', textDecoration:'none', fontWeight:'500', fontSize:'1rem', textShadow:'0 1px 4px #000'}}
-                          onMouseEnter={e => e.target.style.textDecoration = 'underline'}
-                          onMouseLeave={e => e.target.style.textDecoration = 'none'}
-                        >
-                          {actor.name}
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div style={{fontSize:'1rem', marginTop:'10px', textShadow:'0 2px 8px #000', color:'#fff'}}>
-                <b style={{color:'#febd59'}}>TMDB'de Görüntüle:</b>{' '}
-                <a href={`https://www.themoviedb.org/tv/${tmdbData.id}`} target="_blank" rel="noopener noreferrer" style={{color:'#3af', fontWeight:'bold'}}>
-                  TMDB'de Görüntüle
-                </a>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div style={{color:'#febd59', fontWeight:'bold', fontSize:'18px', zIndex: 1, position: 'relative'}}>Dizi bilgisi bulunamadı.</div>
-        )}
-      </div>
-      <h2 style={{marginBottom:'32px', color:'#febd59', fontWeight:'bold'}}>
-        {decodeURIComponent(platformName)} / {decodeURIComponent(seriesName)}
-      </h2>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${columns}, minmax(180px, 1fr))`,
-        gap: '24px'
-      }}>
-        {episodesList.map((bolum, i) => (
-          <div 
-            key={i} 
-            ref={(el) => (itemRefs.current[i] = el)}
-            tabIndex={0}
+    <div style={{ background: '#0e0e0e', minHeight: '100vh', color: '#fff', padding: '32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px, 520px) 1fr', gap: '56px' }}>
+        <div>
+          <button
+            onClick={handleBackClick}
             style={{
-              background: focusedIndex === i ? '#444' : '#222',
-              borderRadius: '12px',
-              boxShadow: focusedIndex === i ? '0 0 24px #febd59' : '0 2px 12px #0008',
+              background: 'none',
+              border: 'none',
+              color: '#d8d8d8',
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
-              padding: '7px',
+              gap: '8px',
               cursor: 'pointer',
-              transition: 'box-shadow 0.2s, background 0.2s',
-              outline: 'none'
+              padding: 0,
+              marginBottom: '28px',
+              opacity: 0.9
             }}
-            onClick={() => handleEpisodeClick(bolum.url)}
           >
-            {bolum.logo && (
-              <img
-                src={bolum.logo}
-                alt={bolum['tvg-name'] || bolum.name}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  borderRadius: '8px',
-                  marginBottom: '12px',
-                  background: '#333'
-                }}
-                onError={e => { e.target.style.display = 'none'; }}
-              />
-            )}
-            <div style={{fontWeight:'bold', textAlign:'center', fontSize:'15px'}}>
-              {getEpisodeTitle(bolum)}
-            </div>
-            {shouldShowSeasonLine(bolum) && (
-              <div style={{color:'#bbb', fontSize:'13px', textAlign:'center', marginTop:'4px'}}>
-                {bolum.seasonEpisode}
-              </div>
-            )}
+            <span>geri için</span>
+            <span className="material-icons" style={{ fontSize: 18 }}>arrow_back</span>
+            <span>basın</span>
+          </button>
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: '72px',
+              letterSpacing: '12px',
+              lineHeight: 1,
+              textTransform: 'uppercase',
+              marginBottom: '18px',
+              textShadow: '0 4px 18px #000'
+            }}
+          >
+            {tmdbData?.name || decodeURIComponent(seriesName || '')}
           </div>
-        ))}
+
+          {/* Dizi konusu (overview) */}
+          {seriesOverview ? (
+            <div
+              style={{
+                opacity: 0.9,
+                lineHeight: 1.7,
+                marginBottom: '20px',
+                display: '-webkit-box',
+                WebkitLineClamp: 6,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden'
+              }}
+            >
+              {seriesOverview}
+            </div>
+          ) : null}
+
+          {/* Meta satırı + YAŞ/ŞİDDET rozetleri */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#d0d0d0', marginBottom: '36px' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, background: '#ff5252', borderRadius: '50%' }} />
+              Dizi
+            </span>
+            <span>• {Math.max(1, (tmdbData?.number_of_seasons || 0) || (seasons?.length || 1))} Sezon</span>
+
+            {/* Yaş rozeti */}
+            {ageViolence.label ? (
+              <>
+                <span>•</span>
+                <span
+                  title={`Yaş Sınırı: ${ageViolence.label}`}
+                  style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: '#efefef', color: '#111',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 900, fontSize: 12, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)'
+                  }}
+                >
+                  {ageViolence.label}
+                </span>
+              </>
+            ) : null}
+
+            {/* Şiddet rozeti */}
+            {ageViolence.violent ? (
+              <>
+                <span>•</span>
+                <span
+                  className="material-icons"
+                  title="Şiddet Unsurları İçerebilir"
+                  style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: '#ff3b3b', color: '#fff',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 18, boxShadow: '0 2px 6px rgba(0,0,0,0.25)'
+                  }}
+                >
+                  sports_mma
+                </span>
+              </>
+            ) : null}
+
+            {/* IMDb yerine mevcut puan (TMDB) gösteriliyordu, korunuyor */}
+            {tmdbData?.vote_average ? (
+              <>
+                <span>•</span>
+                <span
+                  style={{
+                    background: '#ffd54f',
+                    color: '#111',
+                    borderRadius: 6,
+                    padding: '2px 6px',
+                    fontWeight: 800,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  <span className="material-icons" style={{ fontSize: 16, color: '#111' }}>local_movies</span>
+                  {tmdbData.vote_average.toFixed(1)}
+                </span>
+              </>
+            ) : null}
+          </div>
+
+          <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '12px' }}>Sezonlar ve Bölümler</div>
+          <div style={{ position: 'relative', width: 'fit-content' }}>
+            <select
+              value={selectedSeason}
+              onChange={(e) => setSelectedSeason(Number(e.target.value))}
+              style={{
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                MozAppearance: 'none',
+                background: '#3b3b3b',
+                color: '#f0f0f0',
+                border: 'none',
+                borderRadius: '24px',
+                padding: '12px 48px 12px 18px',
+                minWidth: '160px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)'
+              }}
+            >
+              {seasons.map((s) => (
+                <option key={s} value={s}>{`Sezon ${s}`}</option>
+              ))}
+            </select>
+            <span
+              className="material-icons"
+              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#cfcfcf' }}
+            >
+              expand_more
+            </span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxHeight: 'calc(100vh - 120px)', overflowY: 'auto', paddingRight: '8px' }}>
+          {tmdbSeasonLoading && filteredEpisodes.length === 0 ? (
+            <div style={{ opacity: 0.8 }}>Bölümler yükleniyor…</div>
+          ) : null}
+          {filteredEpisodes.map((bolum, i) => {
+            const { season: snParsed, episode: epParsed } = parseSeasonEpisode(bolum?.seasonEpisode, bolum?.title);
+            const seasonForTitle = snParsed || selectedSeason;
+            const epNumber = epParsed ?? bolum?.__episodeNumber ?? null;
+            const tmdbMatch = epNumber ? tmdbEpByNumber.get(epNumber) : null;
+
+            const seriesBackdrop = tmdbData?.backdrop_path ? `https://image.tmdb.org/t/p/w780${tmdbData.backdrop_path}` : null;
+            const fetchedStill = epNumber ? episodeStills[`${seasonForTitle}-${epNumber}`] : null;
+            const episodeStillFromSeason = tmdbMatch?.still_path ? `https://image.tmdb.org/t/p/w780${tmdbMatch.still_path}` : null;
+            const imageUrl = bolum?.logo || fetchedStill || episodeStillFromSeason || seriesBackdrop;
+
+            const cleanedFromBolum = stripSeasonEpTokens(bolum?.title || '');
+            const cleanedFromTmdb = stripSeasonEpTokens(tmdbMatch?.name || '');
+            const nameFromCache = epNumber ? episodeNames[`${seasonForTitle}-${epNumber}`] : '';
+            const epName =
+              (nameFromCache && !isGenericEpName(nameFromCache) && nameFromCache) ||
+              (cleanedFromTmdb && !isGenericEpName(cleanedFromTmdb) && cleanedFromTmdb) ||
+              (cleanedFromBolum && !isGenericEpName(cleanedFromBolum) && cleanedFromBolum) ||
+              '';
+            const displayTitle = `${formatSeasonEpTr(seasonForTitle, epNumber)}${epName ? ' - ' + epName : ''}`;
+
+            const desc =
+              bolum?.description ||
+              bolum?.desc ||
+              tmdbMatch?.overview ||
+              (tmdbData?.overview ? `${tmdbData.overview.slice(0, 200)}${tmdbData.overview.length > 200 ? '…' : ''}` : '');
+            const duration =
+              bolum?.duration ||
+              bolum?.length ||
+              tmdbMatch?.runtime ||
+              (tmdbData?.episode_run_time?.[0]);
+            const progress = Math.max(0, Math.min(100, Number(bolum?.progress ?? bolum?.percent ?? bolum?.resume ?? 0)));
+            const focused = focusedIndex === i;
+            const clickable = Boolean(bolum?.url);
+
+            return (
+              <div
+                key={`${selectedSeason}-${i}`}
+                ref={(el) => (itemRefs.current[i] = el)}
+                tabIndex={0}
+                onClick={() => clickable && handleEpisodeClick(bolum.url)}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '360px 1fr',
+                  gap: '18px',
+                  alignItems: 'center',
+                  cursor: clickable ? 'pointer' : 'default',
+                  outline: 'none',
+                  opacity: clickable ? 1 : 0.8
+                }}
+              >
+                <div
+                  style={{
+                    position: 'relative',
+                    height: '200px',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    boxShadow: focused ? '0 0 0 4px rgba(255,59,59,0.25)' : '0 4px 16px rgba(0,0,0,0.4)',
+                    border: focused ? '3px solid #ff3b3b' : '3px solid transparent',
+                    transition: 'box-shadow .15s, border-color .15s',
+                    background: '#151515',
+                  }}
+                >
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={displayTitle}
+                      referrerPolicy="no-referrer"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      onError={(e) => {
+                        if (seriesBackdrop && e.currentTarget.src !== seriesBackdrop) {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = seriesBackdrop;
+                        } else {
+                          e.currentTarget.style.display = 'none';
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f1f1f, #111)' }}>
+                      <div style={{ fontWeight: 800, fontSize: 24, color: '#ff3b3b' }}>
+                        {seasonForTitle && epNumber ? `S${seasonForTitle} • B${epNumber}` : 'BÖLÜM'}
+                      </div>
+                    </div>
+                  )}
+                  {progress > 0 && (
+                    <div style={{ position: 'absolute', left: 12, right: 12, bottom: 10, height: '6px', background: '#2f2f2f', borderRadius: 999 }}>
+                      <div style={{ width: `${progress}%`, height: '100%', background: '#ff3b3b', borderRadius: 999 }} />
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontWeight: 800, fontSize: '20px' }}>{displayTitle}</div>
+                  {desc ? (
+                    <div
+                      style={{
+                        opacity: 0.9,
+                        lineHeight: 1.6,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {desc}
+                    </div>
+                  ) : null}
+                  <div style={{ opacity: 0.7, fontSize: '14px', display: 'flex', gap: 12, alignItems: 'center' }}>
+                    {duration ? `${duration} dakika` : ''}
+                    {!clickable && <span style={{ opacity: 0.7, fontSize: 12, background: '#2a2a2a', padding: '2px 8px', borderRadius: 999 }}>Kaynak yok</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {!tmdbSeasonLoading && filteredEpisodes.length === 0 && (
+            <div style={{ opacity: 0.8 }}>Bu sezon için bölüm bulunamadı.</div>
+          )}
+        </div>
       </div>
       {playerUrl && (
         <div style={{
