@@ -255,7 +255,6 @@ export default function PlatformShowcase({ onBack }) {
 							style={{
 								background: (hovered === idx || focusedIdx === idx) ? '#232323' : '#181818',
 								borderRadius: window.innerWidth < 600 ? '12px':'16px',
-								boxShadow: (hovered === idx || focusedIdx === idx) ? '0 0 24px #febd59':'0 2px 16px #0005',
 								width:'100%',
 								height: window.innerWidth < 600 ? '120px':'160px',
 								display:'flex',
@@ -264,7 +263,7 @@ export default function PlatformShowcase({ onBack }) {
 								position:'relative',
 								cursor:'pointer',
 								transition:'box-shadow .2s,background .2s',
-								outline: focusedIdx === idx ? '2px solid #febd59':'none'
+								outline: (hovered === idx || focusedIdx === idx) ? '3px solid #ffffffff' : 'none'
 							}}
 							tabIndex={0}
 							onMouseEnter={()=>setHovered(idx)}

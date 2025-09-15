@@ -21,6 +21,7 @@ export default function PlatformSeriesDetail() {
   const [tmdbSeasonLoading, setTmdbSeasonLoading] = useState(false);
   const [episodeStills, setEpisodeStills] = useState({});
   const [episodeNames, setEpisodeNames] = useState({});
+  const [seriesLogo, setSeriesLogo] = useState(null);
 
   const episodesList = useMemo(() => episodes || [], [episodes]);
   const decodedSeries = useMemo(() => decodeURIComponent(seriesName || ''), [seriesName]);
@@ -164,6 +165,32 @@ export default function PlatformSeriesDetail() {
           if (!detailRes.ok) throw new Error(`HTTP error! status: ${detailRes.status}`);
           const detailJson = await detailRes.json();
           setTmdbData(detailJson);
+          
+          // Logo için ayrı API çağrısı
+          try {
+            const imagesRes = await fetch(
+              `https://api.themoviedb.org/3/tv/${show.id}/images?api_key=${TMDB_API_KEY}`
+            );
+            if (imagesRes.ok) {
+              const imagesJson = await imagesRes.json();
+              const logos = imagesJson.logos || [];
+              
+              // Öncelik sırası: tr > en > null (dil yok) > herhangi biri
+              const turkishLogo = logos.find(logo => logo.iso_639_1 === 'tr');
+              const englishLogo = logos.find(logo => logo.iso_639_1 === 'en');
+              const nullLogo = logos.find(logo => logo.iso_639_1 === null);
+              const anyLogo = logos[0];
+              
+              const selectedLogo = turkishLogo || englishLogo || nullLogo || anyLogo;
+              if (selectedLogo) {
+                setSeriesLogo(`https://image.tmdb.org/t/p/w500${selectedLogo.file_path}`);
+              }
+            }
+          } catch (logoError) {
+            console.error('Logo fetch error:', logoError);
+            setSeriesLogo(null);
+          }
+          
           const trCertification = detailJson.content_ratings?.results?.find(r => r.iso_3166_1 === 'TR');
           const usCertification = detailJson.content_ratings?.results?.find(r => r.iso_3166_1 === 'US');
           setCertification(trCertification?.rating || usCertification?.rating || null);
@@ -177,12 +204,14 @@ export default function PlatformSeriesDetail() {
           setTmdbData(null);
           setWatchProviders(null);
           setCertification(null);
+          setSeriesLogo(null);
         }
       } catch (error) {
         console.error('TMDB fetch error:', error);
         setTmdbData(null);
         setWatchProviders(null);
         setCertification(null);
+        setSeriesLogo(null);
       }
       setTmdbLoading(false);
     }
@@ -533,8 +562,17 @@ export default function PlatformSeriesDetail() {
   }, [tmdbData, mapCertToAge]);
 
   return (
-    <div style={{ background: '#0e0e0e', minHeight: '100vh', color: '#fff', padding: '32px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px, 520px) 1fr', gap: '56px' }}>
+    <div style={{ 
+      background: '#0e0e0e', 
+      minHeight: '100vh', 
+      color: '#fff', 
+      padding: window.innerWidth <= 768 ? '16px' : '32px' 
+    }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'minmax(360px, 520px) 1fr', 
+        gap: window.innerWidth <= 768 ? '32px' : '56px' 
+      }}>
         <div>
           <button
             onClick={handleBackClick}
@@ -547,26 +585,53 @@ export default function PlatformSeriesDetail() {
               gap: '8px',
               cursor: 'pointer',
               padding: 0,
-              marginBottom: '28px',
-              opacity: 0.9
+              marginBottom: window.innerWidth <= 768 ? '20px' : '28px',
+              opacity: 0.9,
+              fontSize: window.innerWidth <= 768 ? '14px' : '16px'
             }}
           >
             <span>geri için</span>
-            <span className="material-icons" style={{ fontSize: 18 }}>arrow_back</span>
+            <span className="material-icons" style={{ fontSize: window.innerWidth <= 768 ? 16 : 18 }}>arrow_back</span>
             <span>basın</span>
           </button>
           <div
             style={{
-              fontWeight: 900,
-              fontSize: '72px',
-              letterSpacing: '12px',
-              lineHeight: 1,
-              textTransform: 'uppercase',
-              marginBottom: '18px',
-              textShadow: '0 4px 18px #000'
+              marginBottom: window.innerWidth <= 768 ? '12px' : '18px',
+              display: 'flex',
+              alignItems: 'center',
+              minHeight: window.innerWidth <= 768 ? '60px' : '80px'
             }}
           >
-            {tmdbData?.name || decodeURIComponent(seriesName || '')}
+            {seriesLogo ? (
+              <img
+                src={seriesLogo}
+                alt={tmdbData?.name || decodeURIComponent(seriesName || '')}
+                style={{
+                  height: window.innerWidth <= 768 ? '50px' : '70px',
+                  width: 'auto',
+                  maxWidth: '100%',
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 4px 18px rgba(0,0,0,0.8))'
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextSibling.style.display = 'block';
+                }}
+              />
+            ) : null}
+            <div
+              style={{
+                fontWeight: 900,
+                fontSize: window.innerWidth <= 768 ? '36px' : window.innerWidth <= 1024 ? '48px' : '72px',
+                letterSpacing: window.innerWidth <= 768 ? '4px' : window.innerWidth <= 1024 ? '8px' : '12px',
+                lineHeight: 1,
+                textTransform: 'uppercase',
+                textShadow: '0 4px 18px #000',
+                display: seriesLogo ? 'none' : 'block'
+              }}
+            >
+              {tmdbData?.name || decodeURIComponent(seriesName || '')}
+            </div>
           </div>
 
           {/* Dizi konusu (overview) */}
@@ -575,11 +640,12 @@ export default function PlatformSeriesDetail() {
               style={{
                 opacity: 0.9,
                 lineHeight: 1.7,
-                marginBottom: '20px',
+                marginBottom: window.innerWidth <= 768 ? '16px' : '20px',
                 display: '-webkit-box',
-                WebkitLineClamp: 6,
+                WebkitLineClamp: window.innerWidth <= 768 ? 4 : 6,
                 WebkitBoxOrient: 'vertical',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                fontSize: window.innerWidth <= 768 ? '14px' : '16px'
               }}
             >
               {seriesOverview}
@@ -587,7 +653,15 @@ export default function PlatformSeriesDetail() {
           ) : null}
 
           {/* Meta satırı + YAŞ/ŞİDDET rozetleri */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#d0d0d0', marginBottom: '36px' }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: window.innerWidth <= 768 ? '8px' : '12px', 
+            color: '#d0d0d0', 
+            marginBottom: window.innerWidth <= 768 ? '24px' : '36px',
+            fontSize: window.innerWidth <= 768 ? '13px' : '16px',
+            flexWrap: 'wrap'
+          }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 8, height: 8, background: '#ff5252', borderRadius: '50%' }} />
               Dizi
@@ -601,10 +675,14 @@ export default function PlatformSeriesDetail() {
                 <span
                   title={`Yaş Sınırı: ${ageViolence.label}`}
                   style={{
-                    width: 28, height: 28, borderRadius: '50%',
+                    width: window.innerWidth <= 768 ? 24 : 28, 
+                    height: window.innerWidth <= 768 ? 24 : 28, 
+                    borderRadius: '50%',
                     background: '#efefef', color: '#111',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 900, fontSize: 12, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)'
+                    fontWeight: 900, 
+                    fontSize: window.innerWidth <= 768 ? 10 : 12, 
+                    boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)'
                   }}
                 >
                   {ageViolence.label}
@@ -620,10 +698,13 @@ export default function PlatformSeriesDetail() {
                   className="material-icons"
                   title="Şiddet Unsurları İçerebilir"
                   style={{
-                    width: 28, height: 28, borderRadius: '50%',
+                    width: window.innerWidth <= 768 ? 24 : 28, 
+                    height: window.innerWidth <= 768 ? 24 : 28, 
+                    borderRadius: '50%',
                     background: '#ff3b3b', color: '#fff',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 18, boxShadow: '0 2px 6px rgba(0,0,0,0.25)'
+                    fontSize: window.innerWidth <= 768 ? 16 : 18, 
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.25)'
                   }}
                 >
                   sports_mma
@@ -640,21 +721,26 @@ export default function PlatformSeriesDetail() {
                     background: '#ffd54f',
                     color: '#111',
                     borderRadius: 6,
-                    padding: '2px 6px',
+                    padding: window.innerWidth <= 768 ? '2px 4px' : '2px 6px',
                     fontWeight: 800,
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 6
+                    gap: 4,
+                    fontSize: window.innerWidth <= 768 ? '12px' : '14px'
                   }}
                 >
-                  <span className="material-icons" style={{ fontSize: 16, color: '#111' }}>local_movies</span>
+                  <span className="material-icons" style={{ fontSize: window.innerWidth <= 768 ? 14 : 16, color: '#111' }}>local_movies</span>
                   {tmdbData.vote_average.toFixed(1)}
                 </span>
               </>
             ) : null}
           </div>
 
-          <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '12px' }}>Sezonlar ve Bölümler</div>
+          <div style={{ 
+            fontWeight: 700, 
+            fontSize: window.innerWidth <= 768 ? '16px' : '18px', 
+            marginBottom: window.innerWidth <= 768 ? '8px' : '12px' 
+          }}>Sezonlar ve Bölümler</div>
           <div style={{ position: 'relative', width: 'fit-content' }}>
             <select
               value={selectedSeason}
@@ -667,11 +753,12 @@ export default function PlatformSeriesDetail() {
                 color: '#f0f0f0',
                 border: 'none',
                 borderRadius: '24px',
-                padding: '12px 48px 12px 18px',
-                minWidth: '160px',
+                padding: window.innerWidth <= 768 ? '10px 40px 10px 16px' : '12px 48px 12px 18px',
+                minWidth: window.innerWidth <= 768 ? '140px' : '160px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)'
+                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+                fontSize: window.innerWidth <= 768 ? '14px' : '16px'
               }}
             >
               {seasons.map((s) => (
@@ -680,26 +767,36 @@ export default function PlatformSeriesDetail() {
             </select>
             <span
               className="material-icons"
-              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#cfcfcf' }}
+              style={{ 
+                position: 'absolute', 
+                right: window.innerWidth <= 768 ? 10 : 12, 
+                top: '50%', 
+                transform: 'translateY(-50%)', 
+                pointerEvents: 'none', 
+                color: '#cfcfcf',
+                fontSize: window.innerWidth <= 768 ? 18 : 20
+              }}
             >
               expand_more
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxHeight: 'calc(100vh - 120px)', overflowY: 'auto', paddingRight: '8px' }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: window.innerWidth <= 768 ? '16px' : '20px', 
+          maxHeight: window.innerWidth <= 768 ? 'none' : 'calc(100vh - 120px)', 
+          overflowY: window.innerWidth <= 768 ? 'visible' : 'auto', 
+          paddingRight: window.innerWidth <= 768 ? '0' : '8px' 
+        }}>
           {tmdbSeasonLoading && filteredEpisodes.length === 0 ? (
-            <div style={{ opacity: 0.8 }}>Bölümler yükleniyor…</div>
+            <div style={{ opacity: 0.8, fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>Bölümler yükleniyor…</div>
           ) : null}
           {filteredEpisodes.map((bolum, i) => {
             const { season: snParsed, episode: epParsed } = parseSeasonEpisode(bolum?.seasonEpisode, bolum?.title);
             const seasonForTitle = snParsed || selectedSeason;
             const epNumber = epParsed ?? bolum?.__episodeNumber ?? null;
             const tmdbMatch = epNumber ? tmdbEpByNumber.get(epNumber) : null;
-
-            const seriesBackdrop = tmdbData?.backdrop_path ? `https://image.tmdb.org/t/p/w780${tmdbData.backdrop_path}` : null;
-            const fetchedStill = epNumber ? episodeStills[`${seasonForTitle}-${epNumber}`] : null;
-            const episodeStillFromSeason = tmdbMatch?.still_path ? `https://image.tmdb.org/t/p/w780${tmdbMatch.still_path}` : null;
-            const imageUrl = bolum?.logo || fetchedStill || episodeStillFromSeason || seriesBackdrop;
 
             const cleanedFromBolum = stripSeasonEpTokens(bolum?.title || '');
             const cleanedFromTmdb = stripSeasonEpTokens(tmdbMatch?.name || '');
@@ -732,81 +829,111 @@ export default function PlatformSeriesDetail() {
                 tabIndex={0}
                 onClick={() => clickable && handleEpisodeClick(bolum.url)}
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: '360px 1fr',
-                  gap: '18px',
-                  alignItems: 'center',
+                  background: focused ? 'rgba(255, 59, 59, 0.1)' : '#1a1a1a',
+                  border: focused ? '2px solid #ff3b3b' : '2px solid transparent',
+                  borderRadius: '12px',
+                  padding: window.innerWidth <= 768 ? '16px' : '20px',
                   cursor: clickable ? 'pointer' : 'default',
                   outline: 'none',
-                  opacity: clickable ? 1 : 0.8
+                  opacity: clickable ? 1 : 0.8,
+                  transition: 'all 0.15s ease',
+                  position: 'relative'
                 }}
               >
-                <div
-                  style={{
-                    position: 'relative',
-                    height: '200px',
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    boxShadow: focused ? '0 0 0 4px rgba(255,59,59,0.25)' : '0 4px 16px rgba(0,0,0,0.4)',
-                    border: focused ? '3px solid #ff3b3b' : '3px solid transparent',
-                    transition: 'box-shadow .15s, border-color .15s',
-                    background: '#151515',
-                  }}
-                >
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt={displayTitle}
-                      referrerPolicy="no-referrer"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                      onError={(e) => {
-                        if (seriesBackdrop && e.currentTarget.src !== seriesBackdrop) {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = seriesBackdrop;
-                        } else {
-                          e.currentTarget.style.display = 'none';
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1f1f1f, #111)' }}>
-                      <div style={{ fontWeight: 800, fontSize: 24, color: '#ff3b3b' }}>
-                        {seasonForTitle && epNumber ? `S${seasonForTitle} • B${epNumber}` : 'BÖLÜM'}
-                      </div>
-                    </div>
-                  )}
-                  {progress > 0 && (
-                    <div style={{ position: 'absolute', left: 12, right: 12, bottom: 10, height: '6px', background: '#2f2f2f', borderRadius: 999 }}>
-                      <div style={{ width: `${progress}%`, height: '100%', background: '#ff3b3b', borderRadius: 999 }} />
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ fontWeight: 800, fontSize: '20px' }}>{displayTitle}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: window.innerWidth <= 768 ? '8px' : '10px' }}>
+                  <div style={{ 
+                    fontWeight: 800, 
+                    fontSize: window.innerWidth <= 768 ? '18px' : '22px',
+                    lineHeight: 1.3,
+                    color: '#fff'
+                  }}>{displayTitle}</div>
+                  
                   {desc ? (
                     <div
                       style={{
-                        opacity: 0.9,
+                        opacity: 0.85,
                         lineHeight: 1.6,
                         display: '-webkit-box',
-                        WebkitLineClamp: 2,
+                        WebkitLineClamp: window.innerWidth <= 768 ? 3 : 2,
                         WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
+                        overflow: 'hidden',
+                        fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                        color: '#d0d0d0'
                       }}
                     >
                       {desc}
                     </div>
                   ) : null}
-                  <div style={{ opacity: 0.7, fontSize: '14px', display: 'flex', gap: 12, alignItems: 'center' }}>
-                    {duration ? `${duration} dakika` : ''}
-                    {!clickable && <span style={{ opacity: 0.7, fontSize: 12, background: '#2a2a2a', padding: '2px 8px', borderRadius: 999 }}>Kaynak yok</span>}
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: window.innerWidth <= 768 ? 12 : 16, 
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    fontSize: window.innerWidth <= 768 ? '13px' : '14px',
+                    color: '#a0a0a0'
+                  }}>
+                    {duration ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span className="material-icons" style={{ fontSize: 16 }}>schedule</span>
+                        {duration} dakika
+                      </span>
+                    ) : null}
+                    
+                    {!clickable && (
+                      <span style={{ 
+                        background: '#333', 
+                        color: '#999',
+                        padding: '4px 10px', 
+                        borderRadius: '16px',
+                        fontSize: window.innerWidth <= 768 ? 11 : 12,
+                        fontWeight: 600
+                      }}>
+                        Kaynak yok
+                      </span>
+                    )}
+                    
+                    {clickable && (
+                      <span style={{ 
+                        background: 'rgba(255, 59, 59, 0.15)', 
+                        color: '#ff3b3b',
+                        padding: '4px 10px', 
+                        borderRadius: '16px',
+                        fontSize: window.innerWidth <= 768 ? 11 : 12,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4
+                      }}>
+                        <span className="material-icons" style={{ fontSize: 14 }}>play_circle</span>
+                        İzle
+                      </span>
+                    )}
                   </div>
+                  
+                  {progress > 0 && (
+                    <div style={{ 
+                      marginTop: '8px',
+                      height: '4px', 
+                      background: '#333', 
+                      borderRadius: '999px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{ 
+                        width: `${progress}%`, 
+                        height: '100%', 
+                        background: 'linear-gradient(90deg, #ff3b3b, #ff6b6b)', 
+                        borderRadius: '999px',
+                        transition: 'width 0.3s ease'
+                      }} />
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })}
           {!tmdbSeasonLoading && filteredEpisodes.length === 0 && (
-            <div style={{ opacity: 0.8 }}>Bu sezon için bölüm bulunamadı.</div>
+            <div style={{ opacity: 0.8, fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>Bu sezon için bölüm bulunamadı.</div>
           )}
         </div>
       </div>
@@ -824,18 +951,20 @@ export default function PlatformSeriesDetail() {
             onClick={handlePlayerClose}
             style={{
               position: 'absolute',
-              top: 24,
-              right: 24,
+              top: window.innerWidth <= 768 ? 16 : 24,
+              right: window.innerWidth <= 768 ? 16 : 24,
               background: 'rgba(255,255,255,0.1)',
               color: '#fff',
               border: 'none',
               borderRadius: '50%',
-              padding: '12px',
+              padding: window.innerWidth <= 768 ? '10px' : '12px',
               cursor: 'pointer',
               zIndex: 1003,
+              minHeight: window.innerWidth <= 768 ? '44px' : 'auto',
+              minWidth: window.innerWidth <= 768 ? '44px' : 'auto'
             }}
           >
-            <span className="material-icons">close</span>
+            <span className="material-icons" style={{ fontSize: window.innerWidth <= 768 ? 20 : 24 }}>close</span>
           </button>
           <SimpleHlsPlayer url={playerUrl} />
         </div>
