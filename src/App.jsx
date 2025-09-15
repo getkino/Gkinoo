@@ -15,6 +15,8 @@ import CategoryShowcase from "./pages/CategoryShowcase";
 import CategoryDetail from "./pages/CategoryDetail";
 import SettingsPage from './pages/SettingsPage';
 import TmdbMovie from './pages/TmdbMovie';
+import Movies from './pages/Movies';
+import Belgesel from './pages/Belgesel';
 import { LanguageProvider } from './contexts/LanguageContext';
 
 const SOURCES = [
@@ -406,6 +408,9 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/movie/:tmdbId" element={<TmdbMovie />} />
+          <Route path="/movies" element={<Movies />} />
+          <Route path="/belgesel" element={<Belgesel />} />
+          <Route path="/belgesel/:title" element={<PlatformSeriesDetail />} />
           <Route path="/live-tv" element={
             <>
               {!isWatching && (
@@ -546,21 +551,6 @@ function AppContent() {
           <Route path="/kategoriler" element={<CategoryShowcase />} />
           <Route path="/kategoriler/:slug" element={<CategoryDetail />} />
           <Route path="/ayarlar" element={<SettingsPage />} />
-          <Route path="/belgeseller" element={
-            <div style={{
-              minHeight: '100vh',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
-              color: 'white'
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>Belgeseller</h1>
-                <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Bu bölüm yakında gelecek...</p>
-              </div>
-            </div>
-          } />
         </Routes>
       </div>
     </div>

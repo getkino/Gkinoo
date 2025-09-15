@@ -5,6 +5,14 @@ import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
+// React Icons importları
+import { IoHomeOutline } from 'react-icons/io5';
+import { BiCategory } from 'react-icons/bi';
+import { HiOutlineDesktopComputer } from 'react-icons/hi';
+import { IoDocumentTextOutline } from 'react-icons/io5';
+import { BiMovie } from 'react-icons/bi';
+import { PiTelevisionSimple } from 'react-icons/pi';
+import { IoSettingsOutline } from 'react-icons/io5';
 
 export default function AppHeader({ active }) {
   const navigate = useNavigate();
@@ -38,6 +46,7 @@ export default function AppHeader({ active }) {
           <Button
             color="inherit"
             onClick={() => navigate('/')}
+            startIcon={<IoHomeOutline />}
             sx={{
               bgcolor: isActive('home') ? '#fff' : 'transparent',
               color: isActive('home') ? '#222' : '#a0a0a0',
@@ -58,6 +67,7 @@ export default function AppHeader({ active }) {
           <Button
             color="inherit"
             onClick={() => navigate('/kategoriler')}
+            startIcon={<BiCategory />}
             sx={{
               bgcolor: isActive('categories') ? '#fff' : 'transparent',
               color: isActive('categories') ? '#222' : '#a0a0a0',
@@ -78,6 +88,7 @@ export default function AppHeader({ active }) {
           <Button
             color="inherit"
             onClick={() => navigate('/platform')}
+            startIcon={<HiOutlineDesktopComputer />}
             sx={{
               bgcolor: isActive('shows') ? '#fff' : 'transparent',
               color: isActive('shows') ? '#222' : '#a0a0a0',
@@ -97,10 +108,12 @@ export default function AppHeader({ active }) {
           >{t('platforms')}</Button>
           <Button
             color="inherit"
+            onClick={() => navigate('/belgesel')}
+            startIcon={<IoDocumentTextOutline />}
             sx={{
-              bgcolor: isActive('favorites') ? '#fff' : 'transparent',
-              color: isActive('favorites') ? '#222' : '#a0a0a0',
-              fontWeight: isActive('favorites') ? 600 : 400,
+              bgcolor: isActive('documentaries') ? '#fff' : 'transparent',
+              color: isActive('documentaries') ? '#222' : '#a0a0a0',
+              fontWeight: isActive('documentaries') ? 600 : 400,
               px: 3,
               py: 1.5,
               borderRadius: 2,
@@ -109,13 +122,15 @@ export default function AppHeader({ active }) {
               textTransform: 'none',
               boxShadow: 'none',
               '&:hover': {
-                bgcolor: isActive('favorites') ? '#fff' : 'rgba(255,255,255,0.06)',
-                color: isActive('favorites') ? '#222' : '#fff'
+                bgcolor: isActive('documentaries') ? '#fff' : 'rgba(255,255,255,0.06)',
+                color: isActive('documentaries') ? '#222' : '#fff'
               }
             }}
-          >{t('favorites')}</Button>
+          >Belgesel</Button>
           <Button
             color="inherit"
+            onClick={() => navigate('/movies')}
+            startIcon={<BiMovie />}
             sx={{
               bgcolor: isActive('movies') ? '#fff' : 'transparent',
               color: isActive('movies') ? '#222' : '#a0a0a0',
@@ -133,9 +148,9 @@ export default function AppHeader({ active }) {
               }
             }}
           >{t('movies')}</Button>
-          {/* Diziler butonu eklendi */}
           <Button
             color="inherit"
+            startIcon={<PiTelevisionSimple />}
             sx={{
               bgcolor: isActive('series') ? '#fff' : 'transparent',
               color: isActive('series') ? '#222' : '#a0a0a0',
@@ -156,6 +171,7 @@ export default function AppHeader({ active }) {
           <Button
             color="inherit"
             onClick={() => navigate('/ayarlar')}
+            startIcon={<IoSettingsOutline />}
             sx={{
               bgcolor: isActive('settings') ? '#fff' : 'transparent',
               color: isActive('settings') ? '#222' : '#a0a0a0',
