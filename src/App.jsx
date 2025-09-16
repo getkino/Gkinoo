@@ -17,6 +17,7 @@ import SettingsPage from './pages/SettingsPage';
 import TmdbMovie from './pages/TmdbMovie';
 import Movies from './pages/Movies';
 import Belgesel from './pages/Belgesel';
+import BelgeselDetail from './pages/BelgeselDetail';
 import { LanguageProvider } from './contexts/LanguageContext';
 
 const SOURCES = [
@@ -43,28 +44,6 @@ const imageMap = {
   "CARTOON": "/images/cartoon.jpg",
 };
 
-function MobileHeader({ onMenuClick, theme, onThemeToggle }) {
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 900;
-  if (!isMobile) return null;
-  return (
-    <header className="mobile-header" style={{ background: theme === 'dark' ? '#121212' : '#fff', color: theme === 'dark' ? '#fff' : '#222' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-        <button className="header-btn" onClick={onMenuClick}>
-          <span className="material-icons">menu</span>
-        </button>
-        <div className="header-logo" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <img src="/logo.png" alt="Logo" style={{ height: 32, margin: '0 auto' }} />
-        </div>
-        <div className="header-actions" style={{ display: 'flex', alignItems: 'center' }}>
-          <button className="header-btn" onClick={onThemeToggle}>
-            <span className="material-icons">{theme === 'dark' ? 'wb_sunny' : 'dark_mode'}</span>
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 function AppContent() {
   const navigate = useNavigate(); // Hook'u BrowserRouter içine taşı
   const [selectedSource, setSelectedSource] = useState(SOURCES[0]);
@@ -79,7 +58,6 @@ function AppContent() {
   const [customSources, setCustomSources] = useState([]);
   const [isGridFocused, setIsGridFocused] = useState(false);
   const [theme, setTheme] = useState('dark');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tmdbInfo, setTmdbInfo] = useState(null);
   const [showPlatforms, setShowPlatforms] = useState(false);
   const sidebarRef = useRef(null);
@@ -280,18 +258,12 @@ function AppContent() {
       setSelectedPlatform(source.platform);
       setSidebarFocusIndex([...SOURCES, ...customSources].findIndex(s => s.platform === source.platform));
       setSelectedGroup(null);
-      setMobileMenuOpen(false);
     }
   };
 
   // Arama kutusu işlevi
   const handleSearchChange = (val) => {
     setSearchTerm(val);
-  };
-
-  // Menü aç/kapat
-  const handleMenuClick = () => {
-    setMobileMenuOpen(o => !o);
   };
 
   return (
@@ -303,107 +275,6 @@ function AppContent() {
       flexDirection: 'column',
       fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     }}>
-      <MobileHeader
-        onMenuClick={handleMenuClick}
-        theme={theme}
-        onThemeToggle={handleThemeToggle}
-      />
-      {/* Mobilde açılır menü/modal */}
-      {typeof window !== "undefined" && window.innerWidth < 900 && mobileMenuOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            background: theme === 'dark' ? 'rgba(20,20,20,0.98)' : 'rgba(255,255,255,0.98)',
-            zIndex: 9999,
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '32px 16px 16px 16px'
-          }}
-        >
-          <button
-            style={{
-              alignSelf: 'flex-end',
-              background: 'none',
-              border: 'none',
-              fontSize: 28,
-              color: theme === 'dark' ? '#fff' : '#222',
-              marginBottom: 12
-            }}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <span className="material-icons">close</span>
-          </button>
-          <img src="/logo.png" alt="Logo" style={{ height: 48, margin: '0 auto 24px auto', display: 'block' }} />
-          <select
-            value={selectedPlatform || SOURCES[0].platform}
-            onChange={e => handlePlatformChange(e.target.value)}
-            style={{
-              width: '100%',
-              marginBottom: '16px',
-              padding: '12px',
-              fontSize: '1.1rem',
-              borderRadius: '8px',
-              background: theme === 'dark' ? '#23272f' : '#eee',
-              color: theme === 'dark' ? '#fff' : '#222',
-              border: '1px solid #444'
-            }}
-          >
-            {[...SOURCES, ...customSources].map((s, idx) => (
-              <option key={s.platform} value={s.platform}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={e => handleSearchChange(e.target.value)}
-            placeholder="Ara..."
-            style={{
-              width: '100%',
-              padding: '10px',
-              fontSize: '1rem',
-              borderRadius: '8px',
-              border: '1px solid #444',
-              background: theme === 'dark' ? '#1e1e1e' : '#fff',
-              color: theme === 'dark' ? 'white' : '#222',
-              marginBottom: '10px'
-            }}
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button
-              onClick={() => { setMobileMenuOpen(false); navigate('/platform'); }}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 8,
-                border: '1px solid #444',
-                background: theme === 'dark' ? '#23272f' : '#eee',
-                color: theme === 'dark' ? '#fff' : '#222',
-                flex: 1
-              }}
-            >
-              Platformlar
-            </button>
-            <button
-              onClick={() => { setMobileMenuOpen(false); navigate('/kategoriler'); }}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 8,
-                border: '1px solid #444',
-                background: theme === 'dark' ? '#23272f' : '#eee',
-                color: theme === 'dark' ? '#fff' : '#222',
-                flex: 1
-              }}
-            >
-              Kategoriler
-            </button>
-          </div>
-        </div>
-      )}
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -411,6 +282,7 @@ function AppContent() {
           <Route path="/movies" element={<Movies />} />
           <Route path="/belgesel" element={<Belgesel />} />
           <Route path="/belgesel/:title" element={<PlatformSeriesDetail />} />
+          <Route path="/belgesel/:program" element={<BelgeselDetail />} />
           <Route path="/live-tv" element={
             <>
               {!isWatching && (

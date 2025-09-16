@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 // Basit line icon'lar (düzgün hizalama)
 const Icon = ({ name }) => {
@@ -46,6 +47,7 @@ const SettingsPage = () => {
     { key:'support', label:'Yardım ve Destek', icon:'help' }
   ];
   const [active, setActive] = useState('account');
+  const isMobile = useMediaQuery('(max-width:600px)');
 
   // Basit state'ler
   const [subtitleEnabled, setSubtitleEnabled] = useState(true);
@@ -133,34 +135,222 @@ const SettingsPage = () => {
   const panels = { account: renderAccount(), about: renderAbout(), subtitles: renderSubtitles(), language: renderLanguage(), history: renderHistory(), support: renderSupport() };
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', padding:0, margin:0, gap:78, color:'#e5e7eb', fontFamily:'Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif', background:'#111315', position:'fixed', top:0, left:0, width:'100vw', height:'100vh' }}>
-      <nav style={{ width:380, display:'flex', flexDirection:'column', gap:34, padding:'54px 40px 80px' }}>
-        <div style={{ marginBottom:20 }}>
-          <button onClick={() => window.history.back()} style={{
-            background:'#1c1d1f', color:'#e5e7eb', border:'1px solid #2a2d30', padding:'12px 24px', 
-            borderRadius:10, cursor:'pointer', fontSize:16, fontWeight:500, display:'flex', alignItems:'center', gap:8
-          }}>
-            ← Geri
-          </button>
-        </div>
-        {menu.map(m => {
-          const activeState = active===m.key;
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        minHeight: '100vh',
+        padding: 0,
+        margin: 0,
+        gap: isMobile ? 0 : 78,
+        color: '#e5e7eb',
+        fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+        background: '#111315',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        overflow: 'auto'
+      }}
+    >
+      {/* Menü ve geri butonu masaüstünde solda */}
+      {!isMobile && (
+        <nav
+          style={{
+            width: 380,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 34,
+            padding: '54px 40px 80px',
+            borderBottom: 'none',
+            background: 'transparent',
+            alignItems: 'stretch',
+            justifyContent: 'flex-start',
+            minHeight: 'auto',
+          }}
+        >
+          <div style={{ marginBottom: 20, width: 'auto', display: 'block' }}>
+            <button
+              onClick={() => window.history.back()}
+              style={{
+                background: '#1c1d1f',
+                color: '#e5e7eb',
+                border: '1px solid #2a2d30',
+                padding: '12px 24px',
+                borderRadius: 10,
+                cursor: 'pointer',
+                fontSize: 16,
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                width: '100%',
+              }}
+            >
+              ← Geri
+            </button>
+          </div>
+          {menu.map(m => {
+            const activeState = active === m.key;
             return (
-              <button key={m.key} onClick={()=> setActive(m.key)} style={{
-                display:'flex', alignItems:'center', gap:18, width:'100%', padding:'20px 34px',
-                border:'none', textAlign:'left', borderRadius:4, fontSize:20, fontWeight:500,
-                cursor:'pointer', background: activeState? '#d2d1d3':'transparent',
-                color: activeState? '#111315':'#c3c7cc', transition:'background .2s, color .2s'
-              }}>
-                <div style={{ width:22, height:22, display:'flex', alignItems:'center', justifyContent:'center', color: activeState? '#111315':'#90959b' }}><Icon name={m.icon} /></div>
+              <button
+                key={m.key}
+                onClick={() => setActive(m.key)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '20px 34px',
+                  height: 'auto',
+                  border: 'none',
+                  textAlign: 'left',
+                  borderRadius: 4,
+                  fontSize: 20,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  background: activeState ? '#d2d1d3' : 'transparent',
+                  color: activeState ? '#111315' : '#c3c7cc',
+                  transition: 'background .2s, color .2s',
+                  justifyContent: 'flex-start',
+                  borderBottom: 'none',
+                  flex: 'none'
+                }}
+              >
+                <div style={{
+                  width: 22,
+                  height: 22,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: activeState ? '#111315' : '#90959b'
+                }}>
+                  <Icon name={m.icon} />
+                </div>
                 <span>{m.label}</span>
               </button>
             );
-        })}
-      </nav>
-      <main style={{ flex:1, display:'flex', justifyContent:'flex-start', padding:'54px 40px 80px 0' }}>
+          })}
+        </nav>
+      )}
+      {/* Mobilde geri butonu üstte sabit */}
+      {isMobile && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            background: '#111315',
+            zIndex: 1001,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+            padding: '10px 0 0 0'
+          }}
+        >
+          <button
+            onClick={() => window.history.back()}
+            style={{
+              background: '#1c1d1f',
+              color: '#e5e7eb',
+              border: '1px solid #2a2d30',
+              padding: '10px 0',
+              borderRadius: 10,
+              cursor: 'pointer',
+              fontSize: 15,
+              fontWeight: 500,
+              width: '96%',
+              margin: '0 auto 10px auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            ← Geri
+          </button>
+        </div>
+      )}
+      <main
+        style={{
+          flex: 1,
+          display: 'flex',
+          justifyContent: 'flex-start',
+          padding: isMobile ? '66px 16px 76px 16px' : '54px 40px 80px 0', // üstte geri, altta menü için boşluk
+          width: '100%',
+          overflowY: 'auto'
+        }}
+      >
         {panels[active]}
       </main>
+      {/* Mobilde menü altta sabit */}
+      {isMobile && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            width: '100vw',
+            background: '#181818',
+            borderTop: '1px solid #232527',
+            zIndex: 1000,
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 -2px 12px rgba(0,0,0,0.12)'
+          }}
+        >
+          <nav
+            style={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'row',
+              gap: 0,
+              padding: '0',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              minHeight: 60,
+            }}
+          >
+            {menu.map(m => {
+              const activeState = active === m.key;
+              return (
+                <button
+                  key={m.key}
+                  onClick={() => setActive(m.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    height: 56,
+                    border: 'none',
+                    borderRadius: 0,
+                    fontSize: 15,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    background: activeState ? '#d2d1d3' : 'transparent',
+                    color: activeState ? '#111315' : '#c3c7cc',
+                    transition: 'background .2s, color .2s',
+                    borderBottom: 'none',
+                    flex: 1
+                  }}
+                >
+                  <div style={{
+                    width: 22,
+                    height: 22,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: activeState ? '#111315' : '#90959b'
+                  }}>
+                    <Icon name={m.icon} />
+                  </div>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      )}
     </div>
   );
 };

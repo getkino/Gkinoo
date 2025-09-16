@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import AppHeader from '../components/AppHeader';
 import SimpleHlsPlayer from '../components/SimpleHlsPlayer';
 import axios from 'axios';
-import PlatformSeriesDetail from '../components/PlatformSeriesDetail';
+import PlatformSeriesDetail from '../components/PlatformSeriesDetail';  
 
 const Belgesel = () => {
   const navigate = useNavigate();
@@ -122,7 +122,7 @@ const Belgesel = () => {
       "construction", "craft", "workshop"
     ],
     "Doğa & Hayatta Kalma": [
-      "hayatta kal", "survival", "vahsi", "orman", "yaban", "kamp", "av", "olta", "balik", 
+      "hayatta kal", "survival", "vahşi", "orman", "yaban", "kamp", "av", "olta", "balik", 
       "balikcilik", "nehir", "deniz", "okyanus", "naked", "afraid", "alaska", "oduncu", 
       "dagın kral", "wild", "wilderness", "fishing", "hunting", "nature"
     ],
@@ -863,12 +863,12 @@ const Belgesel = () => {
                           }
                         });
                       });
-                      // Belgesel detay sayfasına git
+                      // Belgesel detay sayfasına git (title bilgisini ana başlık olarak gönder)
                       navigate('/belgesel/' + encodeURIComponent(mainTitle), {
                         state: {
                           platform: cat.title,
                           episodes: allEpisodes,
-                          title: mainTitle
+                          title: mainTitle // Burada ana başlık gönderiliyor
                         }
                       });
                     }}

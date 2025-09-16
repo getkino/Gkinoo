@@ -290,7 +290,7 @@ export default function PlatformDetail() {
                 style={{
                   background: focusedIndex === i ? '#444' : '#222',
                   borderRadius: '12px',
-                  boxShadow: focusedIndex === i ? '0 0 24px #febd59' : '0 2px 12px #0008',
+                  boxShadow: focusedIndex === i ? '0 0 24px #ff3b3b' : '0 2px 12px #0008',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -363,7 +363,7 @@ export default function PlatformDetail() {
                 style={{
                   background: focusedIndex === i ? '#444' : '#222',
                   borderRadius: '12px',
-                  boxShadow: focusedIndex === i ? '0 0 24px #febd59' : '0 2px 12px #0008',
+                  boxShadow: focusedIndex === i ? '0 0 24px #ff3b3b' : '0 2px 12px #0008',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',

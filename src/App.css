@@ -57,7 +57,7 @@ html, body, #root {
 
 @media (max-width: 900px) {
   #root {
-    padding-top: 56px !important;
+    /* padding-top: 56px !important; */ /* KALDIRILDI */
   }
 }
 
