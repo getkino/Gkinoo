@@ -8,10 +8,10 @@ const LANG_MAP = {
 };
 
 // EKLENDİ: Tema rengi sabitleri (takım rengi)
-const TEAM = '#febd59';
-const TEAM_DARK = '#e89d3a';
+const TEAM = '#dc2626';
+const TEAM_DARK = '#dc2626';
 const TEAM_GRAD = `linear-gradient(to right, ${TEAM}, ${TEAM_DARK})`;
-const TEAM_GRAD_RGBA = `linear-gradient(to right, rgba(254,189,89,0.8), rgba(232,157,58,0.8))`;
+const TEAM_GRAD_RGBA = `linear-gradient(to right, rgba(220,38,38,0.8), rgba(220,38,38,0.8))`;
 
 function formatTime(seconds) {
   if (isNaN(seconds)) return '00:00:00';
