@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import AppHeader from '../components/AppHeader';
 import SimpleHlsPlayer from '../components/SimpleHlsPlayer';
 import axios from 'axios';
+import { buildCategoriesFromM3U } from './CategoryShowcase';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -85,51 +86,20 @@ const HomePage = () => {
     }
   }, [selectedCard]);
 
-  // Türkçe uyumlu normalize (filmSections'tan ÖNCE)
-  const normalize = (s) =>
-    (s || '')
-      .toLowerCase()
-      .replace(/ç/g, 'c')
-      .replace(/ğ/g, 'g')
-      .replace(/ı/g, 'i')
-      .replace(/ö/g, 'o')
-      .replace(/ş/g, 's')
-      .replace(/ü/g, 'u')
-      .replace(/\s+filmleri?/g, '') // "filmleri" veya "filmler" kaldır
-      .replace(/\s+/g, ' ')
-      .trim();
-
   // Sabit listeye göre (her kategori için) slider'larda gösterilecek bölümleri oluştur
   const filmSections = useMemo(() => {
-    console.log('filmCategories:', filmCategories); // Debug
-    
-    if (!filmCategories.length) {
-      return categoryList.map(cat => ({ title: `${cat.name} filmleri`, items: [] }));
+    // filmCategories zaten buildCategoriesFromM3U tarafından { title, items } şeklinde geliyor
+    // Eğer boşsa categoryList'e göre boş bölümler yerine hiç bölüm dönülmesi daha doğru olabilir
+    if (!filmCategories || filmCategories.length === 0) {
+      return [];
     }
-    
-    return categoryList.map(cat => {
-      const key = normalize(cat.name);
-      console.log(`Aranan: "${cat.name}" -> "${key}"`); // Debug
-      
-      // Direkt eşleşme ara
-      let found = filmCategories.find(g => normalize(g.title) === key);
-      
-      // Bulunamazsa kısmi eşleşme ara
-      if (!found) {
-        found = filmCategories.find(g => {
-          const gt = normalize(g.title);
-          return gt.includes(key) || key.includes(gt);
-        });
-      }
-      
-      console.log(`"${cat.name}" için bulunan:`, found ? `${found.title} (${found.items.length} item)` : 'bulunamadı'); // Debug
-      
-      return { 
-        title: `${cat.name} filmleri`, 
-        items: found ? found.items.slice(0, 12) : [] 
-      };
-    });
-  }, [filmCategories, categoryList]);
+
+    // filmCategories sırasını bozmadan her bir grubu bir section olarak kullan
+    return filmCategories.map(cat => ({
+      title: cat.title,
+      items: Array.isArray(cat.items) ? cat.items.slice(0, 12) : []
+    }));
+  }, [filmCategories]);
 
   // Trend filmler - her kategoriden ilk film
   const trendMovies = useMemo(() => {
@@ -347,57 +317,6 @@ const HomePage = () => {
     };
     fetchUpcoming();
   }, []);
-
-  // M3U parse helper (CategoryDetail.jsx'ten alınan çalışan versiyon)
-  const buildCategoriesFromM3U = (text) => {
-    const lines = text.split('\n');
-    const groupMap = {};
-    let currentItem = null;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      if (line.startsWith('#EXTINF')) {
-        // Parse EXTINF line
-        const match = line.match(/group-title="([^"]*)".*?,(.*)$/);
-        if (match) {
-          const groupTitle = match[1];
-          const title = match[2];
-          
-          // Logo URL'sini bul
-          const logoMatch = line.match(/tvg-logo="([^"]*)"/);
-          const logo = logoMatch ? logoMatch[1] : '';
-          
-          currentItem = {
-            title: title.trim(),
-            logo: logo,
-            group: groupTitle.trim()
-          };
-        }
-      } else if (line && !line.startsWith('#') && currentItem) {
-        // URL line
-        const url = line.trim();
-        const group = currentItem.group || 'Diğer';
-        
-        if (!groupMap[group]) {
-          groupMap[group] = [];
-        }
-        
-        groupMap[group].push({
-          title: currentItem.title,
-          logo: currentItem.logo,
-          url: url
-        });
-        
-        currentItem = null;
-      }
-    }
-
-    return Object.entries(groupMap).map(([title, items]) => ({
-      title,
-      items: items.slice(0, 12)
-    }));
-  };
 
   // M3U'dan filmleri çek
   useEffect(() => {

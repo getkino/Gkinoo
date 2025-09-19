@@ -321,3 +321,54 @@ export default function CategoryShowcase() {
     </div>
   );
 }
+
+// M3U parse fonksiyonunu dışa aktar
+export function buildCategoriesFromM3U(text) {
+  const lines = text.split('\n');
+  const groupMap = {};
+  let currentItem = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (line.startsWith('#EXTINF')) {
+      // Parse EXTINF line
+      const match = line.match(/group-title="([^"]*)".*?,(.*)$/);
+      if (match) {
+        const groupTitle = match[1];
+        const title = match[2];
+
+        // Logo URL'sini bul
+        const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+        const logo = logoMatch ? logoMatch[1] : '';
+
+        currentItem = {
+          title: title.trim(),
+          logo: logo,
+          group: groupTitle.trim()
+        };
+      }
+    } else if (line && !line.startsWith('#') && currentItem) {
+      // URL line
+      const url = line.trim();
+      const group = currentItem.group || 'Diğer';
+
+      if (!groupMap[group]) {
+        groupMap[group] = [];
+      }
+
+      groupMap[group].push({
+        title: currentItem.title,
+        logo: currentItem.logo,
+        url: url
+      });
+
+      currentItem = null;
+    }
+  }
+
+  return Object.entries(groupMap).map(([title, items]) => ({
+    title,
+    items: items.slice(0, 12)
+  }));
+}

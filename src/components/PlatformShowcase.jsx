@@ -13,13 +13,13 @@ const platforms = [
 		name: 'Pixar',
 		logo: '/platformlar/logo/pixar.png',
 		video: '/platformlar/logo/video/pixar.mp4',
-		m3u: '.m3u',
+		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/m3u/PIXAR.m3u',
 	},
 	{
 		name: 'Marvel',
 		logo: '/platformlar/logo/marvel.png',
 		video: '/platformlar/logo/video/marvel.mp4',
-		m3u: '.m3u',
+		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/m3u/Marvel.m3u',
 	},
 	{
 		name: 'Star Wars',
@@ -37,7 +37,7 @@ const platforms = [
 		name: 'DC',
 		logo: '/platformlar/logo/dc.png',
 		video: '/platformlar/logo/video/dc.mp4',
-		m3u: '.m3u',
+		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/m3u/DC.m3u',
 	},
 	{
 		name: 'Amazon Prime',
