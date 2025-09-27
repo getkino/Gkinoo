@@ -118,6 +118,12 @@ const platforms = [
 		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/m3u/Unutulmaz%20Diziler.m3u',
 	},
 	{
+		name: 'Çocuk',
+		logo: '/platformlar/logo/cocuk.svg',
+		video: '/platformlar/logo/video/gain.mp4',
+		m3u: 'https://raw.githubusercontent.com/UzunMuhalefet/Legal-IPTV/main/lists/video/sources/www-trtcocuk-net-tr/all.m3u',
+	},
+	{
 		name: 'TLC',
 		logo: '/platformlar/logo/tlc.png',
 		video: '/platformlar/logo/video/gain.mp4',
