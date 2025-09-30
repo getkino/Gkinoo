@@ -18,6 +18,7 @@ import TmdbMovie from './pages/TmdbMovie';
 import Movies from './pages/Movies';
 import Belgesel from './pages/Belgesel';
 import BelgeselDetail from './pages/BelgeselDetail';
+import FilmRobotu from './pages/FilmRobotu';
 import { LanguageProvider } from './contexts/LanguageContext';
 
 const SOURCES = [
@@ -423,6 +424,7 @@ function AppContent() {
           <Route path="/kategoriler" element={<CategoryShowcase />} />
           <Route path="/kategoriler/:slug" element={<CategoryDetail />} />
           <Route path="/ayarlar" element={<SettingsPage />} />
+          <Route path="/film-robotu" element={<FilmRobotu />} />
         </Routes>
       </div>
     </div>

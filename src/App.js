@@ -182,6 +182,22 @@ export default function AppHeader({ active }) {
               >
                 <IoSettingsOutline size={28} />
               </IconButton>
+              <IconButton
+                onClick={() => navigate('/film-robotu')}
+                sx={{
+                  bgcolor: isActive('filmRobotu') ? '#fff' : 'transparent',
+                  color: isActive('filmRobotu') ? '#222' : '#a0a0a0',
+                  borderRadius: 2,
+                  p: 1.2,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: isActive('filmRobotu') ? '#fff' : 'rgba(255,255,255,0.08)',
+                    color: isActive('filmRobotu') ? '#222' : '#fff'
+                  }
+                }}
+              >
+                <IoSettingsOutline size={28} />
+              </IconButton>
             </>
           ) : (
             <>
@@ -341,29 +357,6 @@ export default function AppHeader({ active }) {
                     }}
                   >
                     {t('settings')}
-                  </Button>
-                  <Button
-                    color="inherit"
-                    onClick={() => navigate('/film-robotu')}
-                    startIcon={<BiMovie />}
-                    sx={{
-                      bgcolor: isActive('film-robotu') ? '#fff' : 'transparent',
-                      color: isActive('film-robotu') ? '#222' : '#a0a0a0',
-                      fontWeight: isActive('film-robotu') ? 600 : 400,
-                      px: 3,
-                      py: 1.5,
-                      borderRadius: 2,
-                      fontSize: 18,
-                      minWidth: 120,
-                      textTransform: 'none',
-                      boxShadow: 'none',
-                      '&:hover': {
-                        bgcolor: isActive('film-robotu') ? '#fff' : 'rgba(255,255,255,0.06)',
-                        color: isActive('film-robotu') ? '#222' : '#fff'
-                      }
-                    }}
-                  >
-                    Film Robotu
                   </Button>
                 </>
               )}

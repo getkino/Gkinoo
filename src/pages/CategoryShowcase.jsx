@@ -74,6 +74,69 @@ const calcColumns = (width) => {
 
 const pickRandomItem = (array) => array[Math.floor(Math.random() * array.length)];
 
+const backgroundCss = `
+:root {
+  --acc-1: #64748b;
+  --acc-2: #334155;
+  --acc-3: #475569;
+  --acc-4: #94a3b8;
+}
+body, html { height: 100%; }
+.backwrap {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+.back-shapes { position: absolute; inset: 0; }
+.floating {
+  position: absolute;
+  display: inline-block;
+  opacity: .7;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,.22));
+  animation: float-bounce 96s cubic-bezier(.4,.8,.6,1) infinite;
+  will-change: transform;
+  background: var(--clr, var(--acc-1));
+}
+.circle { border-radius: 999px; }
+.square { border-radius: .35rem; }
+.triangle {
+  width: 0; height: 0; background: none; filter: none;
+  border-left: 25px solid transparent;
+  border-right: 25px solid transparent;
+  border-bottom: 44px solid var(--acc-2);
+}
+.cross {
+  width: 44px; height: 44px;
+  background: transparent; filter: none;
+  position: relative;
+}
+.cross::before, .cross::after {
+  content: "";
+  position: absolute; inset: 0; margin: auto;
+  width: 8px; height: 100%;
+  background: var(--acc-3); border-radius: 2px;
+}
+.cross::after { transform: rotate(90deg); }
+@keyframes float-bounce {
+  0%   { transform: translate3d(0,0,0) rotate(0deg);}
+  10%  { transform: translate3d(0, -40px, 0) rotate(-8deg);}
+  20%  { transform: translate3d(60vw, 0, 0) rotate(12deg);}
+  30%  { transform: translate3d(0, 40px, 0) rotate(8deg);}
+  40%  { transform: translate3d(-60vw, 0, 0) rotate(-12deg);}
+  50%  { transform: translate3d(0, 60px, 0) rotate(0deg);}
+  60%  { transform: translate3d(60vw, 0, 0) rotate(12deg);}
+  70%  { transform: translate3d(0, -40px, 0) rotate(-8deg);}
+  80%  { transform: translate3d(-60vw, 0, 0) rotate(-12deg);}
+  90%  { transform: translate3d(0, 0, 0) rotate(0deg);}
+  100% { transform: translate3d(0,0,0) rotate(0deg);}
+}
+@media (prefers-reduced-motion: reduce) {
+  .floating { animation: none; }
+}
+`;
+
 export default function CategoryShowcase() {
   const [hovered, setHovered] = useState(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -203,8 +266,59 @@ export default function CategoryShowcase() {
     }
   }, [focusedIndex]);
 
+  // Arka plan CSS'i ekle (yalnızca bir kez)
+  useEffect(() => {
+    if (!document.getElementById('category-bg-css')) {
+      const style = document.createElement('style');
+      style.id = 'category-bg-css';
+      style.innerHTML = backgroundCss;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "#111", display: "flex", flexDirection: "column", overflow: "auto", padding: 0, zIndex: 9999 }}>
+      {/* Arka plan şekilleri */}
+      <div className="backwrap gradient">
+        <div className="back-shapes" aria-hidden="true">
+          <span className="floating circle" style={{top:"7%",left:"7%",animationDelay:"-0.9s"}}></span>
+          <span className="floating triangle" style={{top:"12%",left:"85%",animationDelay:"-4.8s"}}></span>
+          <span className="floating cross" style={{top:"22%",left:"50%",animationDelay:"-4s"}}></span>
+          <span className="floating square" style={{top:"30%",left:"20%",animationDelay:"-2.8s"}}></span>
+          <span className="floating square" style={{top:"45%",left:"75%",animationDelay:"-2.15s"}}></span>
+          <span className="floating square" style={{top:"60%",left:"5%",animationDelay:"-1.9s"}}></span>
+          <span className="floating cross" style={{top:"65%",left:"60%",animationDelay:"-0.65s"}}></span>
+          <span className="floating cross" style={{top:"75%",left:"95%",animationDelay:"-0.4s"}}></span>
+          <span className="floating circle" style={{top:"85%",left:"15%",animationDelay:"-4.1s"}}></span>
+          <span className="floating circle" style={{top:"90%",left:"70%",animationDelay:"-3.65s"}}></span>
+          <span className="floating cross" style={{top:"15%",left:"40%",animationDelay:"-2.25s"}}></span>
+          <span className="floating cross" style={{top:"25%",left:"80%",animationDelay:"-2s"}}></span>
+          <span className="floating cross" style={{top:"35%",left:"55%",animationDelay:"-1.55s"}}></span>
+          <span className="floating cross" style={{top:"55%",left:"35%",animationDelay:"-0.95s"}}></span>
+          <span className="floating square" style={{top:"70%",left:"30%",animationDelay:"-4.45s"}}></span>
+          <span className="floating circle" style={{top:"80%",left:"90%",animationDelay:"-3.35s"}}></span>
+          <span className="floating triangle" style={{top:"10%",left:"60%",animationDelay:"-2.3s"}}></span>
+          <span className="floating triangle" style={{top:"20%",left:"95%",animationDelay:"-1.75s"}}></span>
+          <span className="floating triangle" style={{top:"40%",left:"65%",animationDelay:"-1.25s"}}></span>
+          <span className="floating triangle" style={{top:"50%",left:"25%",animationDelay:"-0.65s"}}></span>
+          <span className="floating triangle" style={{top:"60%",left:"80%",animationDelay:"-0.35s"}}></span>
+          <span className="floating cross" style={{top:"72%",left:"17%",animationDelay:"-4.3s"}}></span>
+          <span className="floating cross" style={{top:"78%",left:"50%",animationDelay:"-4.05s"}}></span>
+          <span className="floating cross" style={{top:"88%",left:"75%",animationDelay:"-3.75s"}}></span>
+          <span className="floating cross" style={{top:"95%",left:"85%",animationDelay:"-3.3s"}}></span>
+          <span className="floating square" style={{top:"5%",left:"60%",animationDelay:"-2.1s"}}></span>
+          <span className="floating square" style={{top:"18%",left:"90%",animationDelay:"-1.75s"}}></span>
+          <span className="floating square" style={{top:"28%",left:"65%",animationDelay:"-1.45s"}}></span>
+          <span className="floating square" style={{top:"38%",left:"45%",animationDelay:"-1.05s"}}></span>
+          <span className="floating square" style={{top:"48%",left:"25%",animationDelay:"-0.7s"}}></span>
+          <span className="floating square" style={{top:"58%",left:"80%",animationDelay:"-0.35s"}}></span>
+          <span className="floating square" style={{top:"68%",left:"97%",animationDelay:"-0.1s"}}></span>
+          <span className="floating triangle" style={{top:"55%",left:"10%",animationDelay:"-2.2s"}}></span>
+          <span className="floating cross" style={{top:"35%",left:"10%",animationDelay:"-3.7s"}}></span>
+          <span className="floating square" style={{top:"80%",left:"50%",animationDelay:"-1.2s"}}></span>
+          <span className="floating circle" style={{top:"60%",left:"40%",animationDelay:"-2.7s"}}></span>
+        </div>
+      </div>
       <AppHeader active="categories" />
       <div style={{ flex: 1, width: '100%', padding: '40px 20px 32px' }}>
         <div
