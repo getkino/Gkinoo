@@ -9,6 +9,22 @@ import { buildCategoriesFromM3U } from './CategoryShowcase';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 const M3U_URL = 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/denemefilm.m3u';
 
+// PlatformShowcase.jsx'e dokunmadan, oradaki markalardan bir alt küme
+const PLATFORMS = [
+  { name: 'Disney+', logo: '/platformlar/logo/disney.png', video: '/platformlar/logo/video/disney.mp4' },
+  { name: 'Pixar', logo: '/platformlar/logo/pixar.png', video: '/platformlar/logo/video/pixar.mp4' },
+  { name: 'Marvel', logo: '/platformlar/logo/marvel.png', video: '/platformlar/logo/video/marvel.mp4' },
+  { name: 'HBO Max', logo: '/platformlar/logo/hbo max.png', video: '/platformlar/logo/video/hbo max.mp4' },
+  { name: 'Netflix', logo: '/platformlar/logo/netflix.png', video: '/platformlar/logo/video/netflix.mp4' },
+  { name: 'Amazon Prime', logo: '/platformlar/logo/amazon prime.png', video: '/platformlar/logo/video/amazon prime.mp4' },
+  { name: 'Paramount+', logo: '/platformlar/logo/Paramount+.png', video: '/platformlar/logo/video/gain.mp4' },
+  { name: 'DC', logo: '/platformlar/logo/dc.png', video: '/platformlar/logo/video/dc.mp4' },
+  { name: 'Blutv', logo: '/platformlar/logo/blutv.png', video: '/platformlar/logo/video/gain.mp4' },
+  { name: 'Hulu', logo: '/platformlar/logo/hulu.png', video: '/platformlar/logo/video/hulu.mp4' },
+  { name: 'Exxen', logo: '/platformlar/logo/exxen.png', video: '/platformlar/logo/video/exxen.mp4' },
+  { name: 'Gain', logo: '/platformlar/logo/gain.png', video: '/platformlar/logo/video/gain.mp4' },
+];
+
 const CHANNELS = [
   { id: 'dmax', title: 'DMAX', url: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/DMAX/DMAX.m3u', img: '/images/dmax.jpg' },
   { id: 'tlc', title: 'TLC', url: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/TLC/TLC.m3u', img: '/images/tlc.jpg' }
@@ -125,6 +141,9 @@ const useKeyboardNavigation = (selectedCard, setSelectedCard, sections, navigate
             const trailerKey = await fetchTrailer(trailerId, trailerType);
             const trailerUrl = trailerKey ? `https://www.youtube.com/watch?v=${trailerKey}` : `https://www.themoviedb.org/${trailerType}/${trailerId}`;
             window.open(trailerUrl, '_blank', 'noopener');
+          } else if (url?.startsWith('/platform/')) {
+            navigate(url);
+            return;
           } else if (url && title) {
             setCurrentVideo({ url, title, poster: null });
           } else if (url?.startsWith('http')) {
@@ -644,6 +663,106 @@ const TrendRow = ({ trendMovies, globalOffset, hovered, selectedCard, cache, the
   );
 };
 
+// YENİ: Platformlar satırı (Trend'in altında yatay şerit)
+const PlatformStrip = ({ items, globalOffset, hovered, selectedCard, theme, navigate, setHovered }) => {
+  const ref = useRef(null);
+  useDragScroll(ref);
+
+  return (
+    <div style={{ width: '100%', margin: '0 auto 28px auto', padding: '0 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, paddingLeft: 10 }}>
+        <h2 style={{ color: theme === 'dark' ? '#fff' : '#333', fontSize: 22, fontWeight: 700, margin: 0 }}>
+          Platformlar
+        </h2>
+      </div>
+
+      <div
+        ref={ref}
+        className="draggable-scroll"
+        style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 12, cursor: 'grab', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        <style>{`.draggable-scroll::-webkit-scrollbar{display:none}`}</style>
+        {items.map((p, i) => {
+          const globalIndex = globalOffset + i;
+          const isActive = hovered === globalIndex || selectedCard === globalIndex;
+          return (
+            <div
+              key={p.name}
+              className="card"
+              aria-label={p.name}
+              data-url={`/platform/${encodeURIComponent(p.name)}`}
+              tabIndex={-1}
+              style={{
+                flex: '0 0 300px',
+                minWidth: 300,
+                maxWidth: 360,
+                height: 150,
+                position: 'relative',
+                borderRadius: 12,
+                overflow: 'hidden',
+                background: theme === 'dark' ? '#151515' : '#eef2f7',
+                border: isActive ? '2px solid #fff' : '1px solid rgba(255,255,255,.25)',
+                cursor: 'pointer',
+                transition: 'all .18s ease',
+              }}
+              onMouseEnter={() => setHovered(globalIndex)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={(e) => {
+                const scroller = e.currentTarget.closest('.draggable-scroll');
+                if (scroller && scroller.dataset.dragging === 'true') return;
+                navigate(`/platform/${encodeURIComponent(p.name)}`, { state: { platform: p } });
+              }}
+            >
+              {/* Arkaplan videosu (hover/focus olduğunda) */}
+              {isActive && p.video && (
+                <video
+                  src={p.video}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    borderRadius: 12,
+                    opacity: 0.6,
+                    zIndex: 1,
+                    pointerEvents: 'none'
+                  }}
+                />
+              )}
+
+              {/* Logo her zaman üstte */}
+              <img
+                src={p.logo}
+                alt={`${p.name} logo`}
+                loading="lazy"
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  maxWidth: '75%',
+                  maxHeight: '75%',
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.45))',
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  zIndex: 2
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const UpcomingRow = ({ upcoming, globalOffset, hovered, selectedCard, theme, fetchTrailer, setHovered }) => {
   const upcomingRef = useRef(null);
   useDragScroll(upcomingRef);
@@ -1119,6 +1238,11 @@ const HomePage = () => {
       result.push({ name: 'Trend', start: cursor, count: trendMovies.length });
       cursor += trendMovies.length;
     }
+    // YENİ: Trend'in hemen ardından Platformlar
+    if (PLATFORMS.length) {
+      result.push({ name: 'Platforms', start: cursor, count: PLATFORMS.length });
+      cursor += PLATFORMS.length;
+    }
     if (upcoming.length) {
       result.push({ name: 'Upcoming', start: cursor, count: upcoming.length });
       cursor += upcoming.length;
@@ -1389,8 +1513,9 @@ const HomePage = () => {
   const heroOffset = featuredMovie ? 1 : 0;
   const top10Offset = heroOffset + (topTenMovies.length || 0);
   const trendOffset = top10Offset + (trendMovies.length || 0);
-  const upcomingOffset = trendOffset + (upcoming.length || 0);
-  const channelOffset = upcomingOffset + (CHANNELS.length || 0);
+  const platformOffset = trendOffset; // Platformlar, Trend'in hemen altında başlayacak
+  const upcomingOffset = platformOffset + (PLATFORMS.length || 0);
+  const channelOffset = upcomingOffset + (upcoming.length || 0);
 
   return (
     <div style={{
@@ -1435,10 +1560,21 @@ const HomePage = () => {
         setHovered={setHovered}
       />
 
+      {/* YENİ: Platformlar (Trend'in altında) */}
+      <PlatformStrip
+        items={PLATFORMS}
+        globalOffset={platformOffset}
+        hovered={hovered}
+        selectedCard={selectedCard}
+        theme={theme}
+        navigate={navigate}
+        setHovered={setHovered}
+      />
+
       {/* Yakında Gelecek */}
       <UpcomingRow
         upcoming={upcoming}
-        globalOffset={trendOffset}
+        globalOffset={upcomingOffset}
         hovered={hovered}
         selectedCard={selectedCard}
         theme={theme}
@@ -1449,7 +1585,7 @@ const HomePage = () => {
       {/* Kanallar */}
       <ChannelRow
         channels={CHANNELS}
-        globalOffset={upcomingOffset}
+        globalOffset={channelOffset}
         hovered={hovered}
         selectedCard={selectedCard}
         theme={theme}
