@@ -20,32 +20,7 @@ export default function FilmRobotu() {
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-
-  // Poster tıklanınca doğrudan izle hedefini açar
-  const handleWatch = async (id, type) => {
-    setError('');
-    try {
-      // Önce en-US isteği yapalım (imdb genelde buradan gelir)
-      let res = await fetch(`${BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=en-US&append_to_response=external_ids`);
-      let data = await res.json();
-      let imdbId = data.imdb_id || data.external_ids?.imdb_id;
-      // Eğer yoksa tr-TR den deneyelim
-      if (!imdbId) {
-        res = await fetch(`${BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=tr-TR&append_to_response=external_ids`);
-        data = await res.json();
-        imdbId = data.imdb_id || data.external_ids?.imdb_id;
-      }
-      if (imdbId) {
-        const targetUrl = `${WORKER_PROXY}${encodeURIComponent(`https://vidmody.com/vs/${imdbId}`)}`;
-        try { window.open(targetUrl, '_blank', 'noopener'); } catch (err) { window.location.href = targetUrl; }
-        return;
-      }
-      setError('İzlenecek bağlantı bulunamadı.');
-    } catch (err) {
-      setError('İzlenirken hata oluştu.');
-    }
-  };
-
+  
   // Arama kutusu değişince
   const handleInput = async (e) => {
     const val = e.target.value;
@@ -56,13 +31,14 @@ export default function FilmRobotu() {
       return;
     }
     try {
-      const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(val)}&language=tr-TR&include_adult=false`);
+      // Sadece film ara
+      const res = await fetch(`${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(val)}&language=tr-TR&include_adult=false`);
       const data = await res.json();
       if (!data.results) throw new Error('API yanıtı alınamadı');
       const items = (data.results || [])
-        .filter(x => x.media_type === 'movie' || x.media_type === 'tv')
         .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-        .slice(0, 5);
+        .slice(0, 5)
+        .map(x => ({ ...x, media_type: 'movie' })); // media_type sabit film
       setDropdown(items);
     } catch (err) {
       setError('Arama sırasında hata oluştu.');
@@ -155,14 +131,14 @@ export default function FilmRobotu() {
         {/* maxWidth büyütüldü, 6 sütunda posterler daha büyük olacak */}
         <div style={{ maxWidth: 1320, margin: 'auto' }}>
           <h1>Film Robotu</h1>
-          <p>Beğendiğin dizi/filmlere benzer yeni öneriler burada listelenecek.</p>
+          <p>Beğendiğin filmlere benzer yeni öneriler burada listelenecek.</p>
           {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
           <div style={{ margin: '24px 0' }}>
             <input
               type="text"
               value={query}
               onChange={handleInput}
-              placeholder="Dizi veya Film Ara"
+              placeholder="Film Ara"
               style={{
                 width: '100%',
                 height: 48,
@@ -184,7 +160,7 @@ export default function FilmRobotu() {
                     <div
                       key={item.id}
                       style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: 8, borderBottom: '1px solid #eee' }}
-                      onClick={() => fetchRecommendations(item.id, item.media_type)}
+                      onClick={() => fetchRecommendations(item.id, 'movie')}
                     >
                       <img src={poster} alt={title} style={{ width: 60, borderRadius: 8, marginRight: 12 }} />
                       <div>
@@ -202,7 +178,7 @@ export default function FilmRobotu() {
           </div>
           {recommendations.length > 0 && (
             <div style={{ marginTop: 30 }}>
-              <h2>Beğenebileceğin İçerikler</h2>
+              <h2>Beğenebileceğin Filmler</h2>
               <div style={{
                 display: 'grid',
                 /* 6 sütun korunuyor; her sütun en az 200px olacak => posterler daha büyük */
@@ -225,15 +201,30 @@ export default function FilmRobotu() {
                         cursor: 'pointer',
                         position: 'relative'
                       }}
-                      onClick={() => navigate(`/${item.media_type === 'movie' ? 'movie' : 'tv'}/${item.id}`)}
+                      onClick={() => navigate(`/movie/${item.id}`)}
                     >
                       {/* Poster yüksekliği artırıldı — geniş ekranda daha büyük görünecek */}
-                      <img
-                        src={poster}
-                        alt={title}
-                        style={{ width: '100%', height: 340, objectFit: 'cover', display: 'block', cursor: 'pointer' }}
-                        onClick={(e) => { e.stopPropagation(); handleWatch(item.id, item.media_type); }}
-                      />
+                      <img src={poster} alt={title} style={{ width: '100%', height: 340, objectFit: 'cover', display: 'block' }} />
+                      {/* İzle butonu - tıklanınca modal açar, event propagation engellenir */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openModal(item.id, 'movie'); }}
+                        aria-label={`"${title}" fragmanını izle`}
+                        style={{
+                          position: 'absolute',
+                          right: 12,
+                          top: 12,
+                          background: 'rgba(0,0,0,0.6)',
+                          color: '#fff',
+                          border: 'none',
+                          padding: '8px 12px',
+                          borderRadius: 8,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          zIndex: 5
+                        }}
+                      >
+                        İzle
+                      </button>
                       <div style={{
                         position: 'absolute',
                         left: 0, right: 0, bottom: 0,
@@ -311,6 +302,35 @@ export default function FilmRobotu() {
                     cursor: 'pointer'
                   }}
                 >×</button>
+                {/* İzle butonu: imdb id varsa worker proxy üzerinden vidmody açar */}
+                {(() => {
+                  const imdbId = modal.imdb_id || modal.external_ids?.imdb_id;
+                  if (imdbId) {
+                    const targetUrl = `${WORKER_PROXY}${encodeURIComponent(`https://vidmody.com/vs/${imdbId}`)}`;
+                    return (
+                      <a
+                        href={targetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          position: 'absolute',
+                          left: 18,
+                          top: 14,
+                          background: '#06b6d4',
+                          color: '#021124',
+                          padding: '8px 12px',
+                          borderRadius: 8,
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                          zIndex: 5
+                        }}
+                      >
+                        İzle
+                      </a>
+                    );
+                  }
+                  return null;
+                })()}
                 {(() => {
                   const trailer = (modal.videos?.results || []).find(v =>
                     (v.type === 'Trailer' || v.type === 'Teaser' || v.type === 'Clip') && v.site === 'YouTube'
@@ -333,34 +353,7 @@ export default function FilmRobotu() {
                     <div style={{ fontSize: 24, fontWeight: 700, color: '#fff' }}>{modal.title || modal.name || 'Ad Bilinmiyor'}</div>
                     <div style={{ fontSize: 15, color: '#fff', opacity: .7 }}>{modal.original_title || modal.original_name || ''}</div>
                     <div style={{ margin: '8px 0', color: '#fff' }}>{(modal.genres || []).map(g => g.name).join(', ') || 'Tür Bilinmiyor'}</div>
-                    <div style={{ display: 'flex', gap: 8, margin: '10px 0', flexWrap: 'wrap', alignItems: 'center' }}>
-                      {/* İzle butonu rozetlerin yanında görünür */}
-                      {(() => {
-                        const imdbId = modal.imdb_id || modal.external_ids?.imdb_id;
-                        if (!imdbId) return null;
-                        const targetUrl = `${WORKER_PROXY}${encodeURIComponent(`https://vidmody.com/vs/${imdbId}`)}`;
-                        return (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              try { window.open(targetUrl, '_blank', 'noopener'); } catch (err) { window.location.href = targetUrl; }
-                            }}
-                            aria-label={`"${modal.title || modal.name}" dış oynatıcıda izle`}
-                            style={{
-                              background: '#06b6d4',
-                              color: '#021124',
-                              padding: '6px 12px',
-                              borderRadius: 20,
-                              fontWeight: 700,
-                              border: 'none',
-                              cursor: 'pointer',
-                              boxShadow: '0 4px 10px rgba(2,6,23,0.2)'
-                            }}
-                          >
-                            İzle
-                          </button>
-                        );
-                      })()}
+                    <div style={{ display: 'flex', gap: 8, margin: '10px 0', flexWrap: 'wrap' }}>
                       <span style={{ background: '#ff9800', color: '#fff', borderRadius: 30, padding: '6px 16px' }}>
                         IMDB: {modal.vote_average ? modal.vote_average.toFixed(1) : 'Bilinmiyor'}
                       </span>

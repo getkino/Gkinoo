@@ -6,6 +6,8 @@ import SimpleHlsPlayer from '../components/SimpleHlsPlayer.jsx';
 const TMDB_API = 'https://api.themoviedb.org/3';
 const IMG_ORIGINAL = 'https://image.tmdb.org/t/p/original';
 const IMG_W500 = 'https://image.tmdb.org/t/p/w500';
+// Fragman altındaki "İzle" butonu için Worker Proxy
+const WORKER_PROXY = 'https://2.nejyoner19.workers.dev/?url=';
 
 // /movie/:tmdbId sadece sayısal TMDB id için hafifletilmiş yeni sayfa
 export default function TmdbMovie() {
@@ -159,6 +161,16 @@ export default function TmdbMovie() {
   // CategoryDetail'den gelen stream URL'i al
   const streamUrl = state?.streamUrl || state?.movie?.url || null;
 
+  // YouTube fragmanını seç (KALDIRILDI - player gösterilmiyor)
+  // const youtubeTrailer = useMemo(() => {
+  //   return (videos || []).find(v =>
+  //     (v.type === 'Trailer' || v.type === 'Teaser' || v.type === 'Clip') && v.site === 'YouTube'
+  //   );
+  // }, [videos]);
+
+  // imdb_id (İzle butonu için)
+  const imdbId = data?.imdb_id || data?.external_ids?.imdb_id;
+
   const handleWatch = () => {
     if (streamUrl) {
       setIsWatching(true);
@@ -233,6 +245,30 @@ export default function TmdbMovie() {
                   border:'2px solid rgba(255,255,255,0.2)',backdropFilter:'blur(10px)',transition:'all 0.3s ease'
                 }}>
                   🎬 Fragman
+                </a>
+              )}
+              {/* İzle butonu: Fragman düğmesinin ALTINDA görünsün */}
+              {imdbId && (
+                <a
+                  href={`${WORKER_PROXY}${encodeURIComponent(`https://vidmody.com/vs/${imdbId}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display:'inline-flex',
+                    alignItems:'center',
+                    justifyContent:'center',
+                    gap:8,
+                    background:'#06b6d4',
+                    color:'#021124',
+                    padding:'14px 24px',
+                    borderRadius:10,
+                    fontSize:15,
+                    fontWeight:800,
+                    textDecoration:'none',
+                    boxShadow:'0 6px 18px rgba(0,0,0,0.3)'
+                  }}
+                >
+                  ▶ İzle
                 </a>
               )}
             </div>
