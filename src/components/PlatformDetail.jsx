@@ -1,22 +1,40 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { parseM3U } from './PlatformShowcase';
+import { parseM3U, initialPlatforms } from './PlatformShowcase';
+// normalize helper: "Disney+" -> "disneyplus", "hbo-max" -> "hbomax", vs.
+function normalizeName(s) {
+  if (!s) return '';
+  return String(s)
+    .toLowerCase()
+    .trim()
+    .replace(/\+/g, 'plus')
+    .replace(/&/g, 'and')
+    .replace(/['’`"]/g, '')
+    .replace(/[^a-z0-9]+/g, ''); // remove non-alphanum
+}
+
+function extractSeriesName(title) {
+  if (!title) return 'Bilinmeyen';
+  // Most entries look like: "Series Name - 1.Sezon 1.Bölüm" — take part before " - "
+  const parts = title.split(' - ');
+  return (parts[0] || title).trim();
+}
 
 function groupByTvgName(groups) {
-  // group-title bazlı normalize (trim + lowerCase) gruplama
+  // Group parsed items by series name (tvg-name/title prefix), not platform.
+  // Input `groups` is an object: { groupTitle: [items...] }
   const allItems = Object.values(groups).flat();
-  const normMap = new Map();
+  const map = new Map();
   for (const item of allItems) {
-    const rawGroup = ((item['group-title'] ?? item.group ?? '') + '').trim();
-    if (!rawGroup) continue;
-    const normKey = rawGroup.toLowerCase();
-    if (!normMap.has(normKey)) {
-      normMap.set(normKey, { displayName: rawGroup, items: [] });
-    }
-    normMap.get(normKey).items.push(item);
+    // prefer explicit tvg-name or name, otherwise extract from title
+    const raw = (item['tvg-name'] || item.name || item.tvgn || item.title || '').toString();
+    const series = extractSeriesName(raw || item.title);
+    const key = series || 'Bilinmeyen';
+    if (!map.has(key.toLowerCase())) map.set(key.toLowerCase(), { displayName: key, items: [] });
+    map.get(key.toLowerCase()).items.push(item);
   }
   const result = {};
-  for (const { displayName, items } of normMap.values()) {
+  for (const { displayName, items } of map.values()) {
     result[displayName] = items;
   }
   return result;
@@ -32,8 +50,29 @@ const getColumns = () => {
 
 export default function PlatformDetail() {
   const { state } = useLocation();
+  const params = useParams();
+  // param adı route tanımına göre değişebilir; genelde tek parametre olur.
+  const rawParam = params && Object.keys(params).length ? params[Object.keys(params)[0]] : undefined;
+  // If route has a second param (e.g. /platform/:platform/:series) capture it
+  const paramKeys = params ? Object.keys(params) : [];
+  const seriesParamRaw = paramKeys.length > 1 ? params[paramKeys[1]] : undefined;
+  // decode then normalize
+  const paramName = rawParam ? decodeURIComponent(rawParam) : undefined;
+  const seriesParam = seriesParamRaw ? decodeURIComponent(seriesParamRaw) : undefined;
+
+  // Eğer location.state.platform yoksa, paramName ile initialPlatforms içinde eşleşen platformu kullan.
+  const platform = useMemo(() => {
+    if (state?.platform) return state.platform;
+    if (paramName) {
+      const normParam = normalizeName(paramName);
+      const found = initialPlatforms.find(p => normalizeName(p.name) === normParam);
+      if (found) return found;
+      return { name: paramName, m3u: undefined, logo: undefined, video: undefined };
+    }
+    return null;
+  }, [state, paramName]);
+
   const navigate = useNavigate();
-  const platform = state?.platform;
   const [groups, setGroups] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedSeries, setSelectedSeries] = useState(null);
@@ -84,20 +123,85 @@ export default function PlatformDetail() {
   // Fetch M3U data
   useEffect(() => {
     async function fetchM3U() {
-      if (!platform?.m3u) return;
       setLoading(true);
+      // Eğer platform nesnesi zaten items içeriyorsa (PlatformShowcase tarafından build edilmiş), doğrudan kullan
+      if (platform?.items && Array.isArray(platform.items)) {
+        setGroups({ [platform.name]: platform.items });
+        // If a series was requested via location.state or URL param, open it
+        const requestedSeries = state?.series || seriesParam;
+        if (requestedSeries) {
+          // group by series and try to find a match
+          const seriesMap = groupByTvgName({ [platform.name]: platform.items });
+          const matchKey = Object.keys(seriesMap).find(k => normalizeName(k) === normalizeName(requestedSeries) || k.toLowerCase().includes(requestedSeries.toLowerCase()));
+          if (matchKey) {
+            setSelectedSeries(seriesMap[matchKey]);
+          }
+        }
+        setLoading(false);
+        return;
+      }
+ 
+      // Eğer m3u yoksa boş bırak
+      if (!platform?.m3u) {
+        setGroups({});
+        setLoading(false);
+        return;
+      }
+ 
       try {
         const res = await fetch(platform.m3u);
         const text = await res.text();
-        setGroups(parseM3U(text));
-      } catch {
-        setGroups({});
-      }
-      setLoading(false);
-    }
-    fetchM3U();
-  }, [platform?.m3u]);
+        const parsed = parseM3U(text); // tüm gruplar
+        // Sadece platform ile eşleşen group-title'leri al.
+        const normPlatform = normalizeName(platform.name);
+        const filtered = {};
+        // 1) Tam normalize eşleşme
+        for (const k of Object.keys(parsed)) {
+          if (normalizeName(k) === normPlatform) filtered[k] = parsed[k];
+        }
+        // 2) Eğer yoksa normalize includes
+        if (Object.keys(filtered).length === 0) {
+          for (const k of Object.keys(parsed)) {
+            if (normalizeName(k).includes(normPlatform) || normPlatform.includes(normalizeName(k))) {
+              filtered[k] = parsed[k];
+            }
+          }
+        }
+        // 3) Hâlâ yoksa: grup içindeki başlık veya tvg-name'lerde eşleşme arayalım (daha esnek fallback)
+        if (Object.keys(filtered).length === 0) {
+          for (const k of Object.keys(parsed)) {
+            const anyMatch = parsed[k].some(it => {
+              const t = (it.title || it.name || it['tvg-name'] || '').toString();
+              return normalizeName(t).includes(normPlatform);
+            });
+            if (anyMatch) filtered[k] = parsed[k];
+          }
+        }
+        // Sonuç: sadece ilgili gruplar setlenir
+        setGroups(filtered);
+        // If the route or navigation requested a specific series, try to open it
+        const requestedSeries = state?.series || seriesParam;
+        if (requestedSeries) {
+          const seriesMap = groupByTvgName(parsed);
+          // find case-insensitive normalized match
+          const matchKey = Object.keys(seriesMap).find(k => normalizeName(k) === normalizeName(requestedSeries) || k.toLowerCase().includes(requestedSeries.toLowerCase()));
+          if (matchKey) {
+            setSelectedSeries(seriesMap[matchKey]);
+          }
+        }
+       } catch {
+         setGroups({});
+       }
+       setLoading(false);
+     }
+     fetchM3U();
+  }, [platform?.m3u, platform?.items, platform?.name]);
 
+  // Reset item refs and focused index when groups or selectedSeries change
+  useEffect(() => {
+    itemRefs.current = [];
+    setFocusedIndex(0);
+  }, [groups, selectedSeries]);
   // Window resize handler
   useEffect(() => {
     const handleResize = () => setColumns(getColumns());
@@ -233,25 +337,27 @@ export default function PlatformDetail() {
           }}
         />
         
-        {platform.logo && (
-          <img
-            src={platform.logo}
-            alt={platform.name}
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '15%',
-              maxWidth: '90vw',
-              objectFit: 'contain',
-              background: 'transparent',
-              boxShadow: 'none',
-              pointerEvents: 'none',
-              zIndex: 3
-            }}
-          />
-        )}
+        {/* Show series/group title (when a series is open) or platform name instead of poster */}
+        <div
+          aria-hidden={false}
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 3,
+            color: '#fff',
+            textAlign: 'center',
+            padding: '8px 16px',
+            background: 'rgba(0,0,0,0.18)',
+            borderRadius: 8,
+            backdropFilter: 'blur(6px)'
+          }}
+        >
+          <div style={{fontSize: 'clamp(18px, 3.5vw, 36px)', fontWeight: 800, letterSpacing: 0.6}}>
+            {selectedSeries ? (selectedSeries[0]?.['tvg-name'] || selectedSeries[0]?.name || selectedSeries[0]?.title) : platform?.name}
+          </div>
+        </div>
       </div>
 
       {/* Content section */}

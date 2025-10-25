@@ -1,13 +1,89 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppHeader from './AppHeader';
+import { buildCategoriesFromM3U } from '../pages/CategoryShowcase'; // <-- M3U'den group-title bazlı kategoriler oluşturur
+import getTmdbProviders from '../utils/getTmdbProviders';
+import platformLogoFiles from '../constants/platformLogos';
+// small normalizer to match platform names to category titles
+function normalizeName(s) {
+	if (!s) return '';
+	return String(s)
+		.toLowerCase()
+		.trim()
+		.replace(/\+/g, 'plus')
+		.replace(/['’`".]/g, '')
+		.replace(/[^a-z0-9ğüşöçıİĞÜŞÖÇ ]/gi, '')
+		.replace(/\s+/g, '');
+}
 
-const platforms = [
+function tokenize(s) {
+	if (!s) return [];
+	return String(s)
+		.toLowerCase()
+		.replace(/\+/g, 'plus')
+		.replace(/['’`".]/g, '')
+		.replace(/[^a-z0-9ğüşöçıİĞÜŞÖÇ ]/gi, ' ')
+		.split(/\s+/)
+		.filter(Boolean);
+}
+
+function findBestPlatformMatch(catTitle) {
+	const catNorm = normalizeName(catTitle);
+	const catTokens = tokenize(catTitle);
+	// attempt several matching strategies, prefer exact/include then token overlap
+	for (const p of initialPlatforms) {
+		const pNorm = normalizeName(p.name);
+		if (!pNorm || !catNorm) continue;
+		if (pNorm === catNorm) return p;
+		if (pNorm.includes(catNorm) || catNorm.includes(pNorm)) return p;
+	}
+
+	// token-overlap: any shared token
+	for (const p of initialPlatforms) {
+		const pTokens = tokenize(p.name);
+		const common = pTokens.filter(t => catTokens.includes(t));
+		if (common.length > 0) return p;
+	}
+
+	// fallback: try partial substring match by tokens
+	for (const p of initialPlatforms) {
+		const pNorm = normalizeName(p.name);
+		for (const t of catTokens) {
+			if (pNorm.includes(t)) return p;
+		}
+	}
+
+	return null;
+}
+
+function findBestProviderLogo(catTitle, providerMap) {
+	if (!providerMap) return null;
+	// providerMap keys are normalized (no spaces) to match normalizeName
+	const catNorm = normalizeName(catTitle);
+	if (providerMap[catNorm]) return providerMap[catNorm];
+
+	// try token overlap by normalizing provider keys to tokens
+	const catTokens = tokenize(catTitle);
+	for (const k of Object.keys(providerMap)) {
+		if (!k) continue;
+		// k is already normalized (no spaces) — also check inclusion
+		if (k.includes(catNorm) || catNorm.includes(k)) return providerMap[k];
+		// token overlap: split k into tokens by camel-case fallback
+		const kTokens = k.split(/\s|(?=[A-Z])|\-/).map(t => t.toLowerCase()).filter(Boolean);
+		const common = kTokens.filter(t => catTokens.includes(t));
+		if (common.length > 0) return providerMap[k];
+	}
+
+	return null;
+}
+
+// Sabit platform listesini başlangıç (fallback) olarak tut
+export const initialPlatforms = [
 	{
 		name: 'Disney+',
 		logo: '/platformlar/logo/disney.png',
 		video: '/platformlar/logo/video/disney.mp4',
-		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/m3u/Disney%2B.m3u',
+		m3u: 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/kanal%20logo%20ve%20intro/dizi.m3u',
 	},
 	{
 		name: 'Pixar',
@@ -137,6 +213,31 @@ const platforms = [
 	},
 ];
 
+// Yardımcı: gradient/videolar (CategoryShowcase ile benzer havuz)
+const GRADIENT_VIDEOS = [
+  "/platformlar/logo/video/gradyan 1.mp4",
+  "/platformlar/logo/video/gradyan 2.mp4",
+  "/platformlar/logo/video/gradyan 3.mp4",
+  "/platformlar/logo/video/gradyan 4.mp4",
+  "/platformlar/logo/video/gradyan 5.mp4",
+  "/platformlar/logo/video/gradyan 6.mp4",
+];
+
+// Yeni: statik gradyan paleti (CategoryShowcase ile uyumlu)
+const GRADIENT_COLOR_SETS = [
+  ["#931A1A","#2A0000"],
+  ["#3E4254","#181A20"],
+  ["#2C2C2C","#101010"],
+  ["#5E4F2F","#1C140A"],
+  ["#1F3437","#0A1415"],
+  ["#16212F","#080C14"],
+  ["#311E32","#120812"],
+  ["#2E1A12","#0F0705"],
+];
+
+const pickRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const pickRandomGradient = () => pickRandomItem(GRADIENT_COLOR_SETS);
+
 export function parseM3U(m3uContent) {
 	const lines = m3uContent.split('\n');
 	const groups = {};
@@ -236,14 +337,122 @@ body, html { height: 100%; }
 export default function PlatformShowcase({ onBack }) {
 	const [hovered, setHovered] = useState(null);
 	const [focusedIdx, setFocusedIdx] = useState(0);
+	// fallback'i gradyan + video ile genişlet
+	const [platforms, setPlatforms] = useState(
+		initialPlatforms.map(p => ({ 
+			...p, 
+			video: p.video || pickRandomItem(GRADIENT_VIDEOS),
+			gradient: pickRandomGradient()
+		}))
+	);
 	const navigate = useNavigate();
 	const gridRef = useRef(null);
+
+	// Build a runtime map of normalizedName -> logoPath using the files exported
+	// from src/constants/platformLogos.js. This uses the same normalizeName
+	// function (defined above) so matching is consistent with category titles.
+	const buildLogoMap = () => {
+		const map = {};
+		for (const p of platformLogoFiles) {
+			try {
+				const parts = p.split('/');
+				const filename = parts[parts.length - 1];
+				const name = filename.replace(/\.[^/.]+$/, '');
+				const key = normalizeName(name);
+				if (key) {
+					map[key] = p;
+					// Also create ASCII-fallback key (replace common Turkish letters) so
+					// filenames that use ascii-only chars still match category titles with diacritics.
+					const ascii = key
+						.replace(/[çÇ]/g, 'c')
+						.replace(/[ğĞ]/g, 'g')
+						.replace(/[üÜ]/g, 'u')
+						.replace(/[şŞ]/g, 's')
+						.replace(/[öÖ]/g, 'o')
+						.replace(/[ıİ]/g, 'i');
+					if (ascii && !map[ascii]) map[ascii] = p;
+				}
+			} catch (e) {
+				// ignore
+			}
+		}
+		return map;
+	};
+
+	const staticLogoMap = buildLogoMap();
 
 	function handlePlatformClick(platform) {
 		navigate(`/platform/${encodeURIComponent(platform.name)}`, {
 			state: { platform }
 		});
 	}
+
+	// Tek M3U'den kategori/grup çekme (fallback: initialPlatforms)
+	useEffect(() => {
+		const M3U_URL = 'https://raw.githubusercontent.com/getkino/depo/refs/heads/main/kanal%20logo%20ve%20intro/dizi.m3u';
+		let cancelled = false;
+
+		(async () => {
+			try {
+				const r = await fetch(M3U_URL);
+				if (!r.ok) throw new Error('Fetch failed');
+				const text = await r.text();
+				if (cancelled) return;
+				const categories = buildCategoriesFromM3U(text); // [{ title, items: [...] }, ...]
+
+				// try fetching TMDB providers (graceful)
+				let providerMap = null;
+				try {
+					providerMap = await getTmdbProviders();
+				} catch (e) {
+					providerMap = null;
+				}
+
+				const built = categories.map((cat) => {
+					const first = (cat.items && cat.items[0]) || {};
+					const matched = findBestPlatformMatch(cat.title);
+					// provider logo fallback if no matched initial platform
+					let providerLogo = null;
+					if (!matched && providerMap) providerLogo = findBestProviderLogo(cat.title, providerMap);
+					// Prefer: 1) static local logo (public/platformlar/logo),
+					// 2) matched initial platform logo (initialPlatforms),
+					// 3) TMDB provider logo, 4) M3U item's tvg-logo (may be a poster),
+					// 5) fallback generated path
+					let logo = null;
+					const catKey = normalizeName(cat.title);
+					if (catKey && staticLogoMap[catKey]) {
+						logo = staticLogoMap[catKey];
+					} else if (matched && matched.logo) {
+						logo = matched.logo;
+					} else if (providerLogo) {
+						logo = providerLogo;
+					}
+					// NOTE: do NOT use `first.logo` (M3U poster) or a guessed fallback image here.
+					// If no real platform logo is found, leave `logo` null so the UI renders
+					// the textual platform/category name instead of showing a poster image.
+					const video = matched?.video || pickRandomItem(GRADIENT_VIDEOS);
+					return {
+						name: cat.title,
+						logo,
+						video,
+						gradient: pickRandomGradient(),
+						m3u: M3U_URL,
+						items: cat.items
+					};
+				});
+				if (built.length > 0) {
+					// Debug: show which logo was chosen for each category (helps verify local logos are used)
+					try { console.debug('PlatformShowcase logos:', built.map(b=>({ name: b.name, logo: b.logo }))); } catch (e) {}
+					setPlatforms(built);
+				}
+			} catch (err) {
+				// fallback: leave initialPlatforms
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	// Uzaktan kumanda desteği (ok tuşları ve enter)
 	useEffect(() => {
@@ -410,60 +619,93 @@ export default function PlatformShowcase({ onBack }) {
 						justifyItems:'center'
 					}}
 				>
-					{platforms.map((p, idx)=>(
-						<div
-							key={p.name}
-							style={{
-								background: (hovered === idx || focusedIdx === idx) ? '#232323' : '#181818',
-								borderRadius: window.innerWidth < 600 ? '12px':'16px',
-								width:'100%',
-								height: window.innerWidth < 600 ? '120px':'160px',
-								display:'flex',
-								alignItems:'center',
-								justifyContent:'center',
-								position:'relative',
-								cursor:'pointer',
-								transition:'box-shadow .2s,background .2s',
-								outline: (hovered === idx || focusedIdx === idx) ? '3px solid #ffffffff' : 'none'
-							}}
-							tabIndex={0}
-							onMouseEnter={()=>setHovered(idx)}
-							onMouseLeave={()=>setHovered(null)}
-							onClick={()=>handlePlatformClick(p)}
-						>
-							<img
-								src={p.logo}
-								alt={p.name}
-								style={{
-									width: window.innerWidth < 600 ? '60%':'65%',
-									height: window.innerWidth < 600 ? '60%':'65%',
-									objectFit:'contain',
-									filter:'drop-shadow(0 2px 8px #0007)',
-									zIndex:2,
-									position:'relative'
-								}}
-							/>
-							{(hovered === idx || focusedIdx === idx) && (
-								<video
-									src={p.video}
-									autoPlay
-									loop
-									muted
-									style={{
-										position:'absolute',
-										inset:0,
-										width:'100%',
-										height:'100%',
-										objectFit:'cover',
-										borderRadius: window.innerWidth < 600 ? '12px':'16px',
-										opacity:.6,
-										zIndex:1,
-										pointerEvents:'none'
-									}}
-								/>
-							)}
-						</div>
-					))}
+{platforms.map((p, idx)=>(
+	<div
+		key={p.name}
+		style={{
+			position:'relative',
+			width:'100%',
+			height: window.innerWidth < 600 ? 100 : 140,
+			maxWidth: 260,
+			borderRadius: 16,
+			overflow: 'hidden',
+			cursor:'pointer',
+			outline: (hovered === idx || focusedIdx === idx) ? '3px solid #fff' : '1px solid rgba(0,0,0,0.25)',
+			boxShadow: (hovered === idx || focusedIdx === idx) ? '0 0 0 3px #fff, 0 10px 30px -6px rgba(0,0,0,0.7)' : '0 6px 22px -8px rgba(0,0,0,0.65)',
+			transform: (hovered === idx || focusedIdx === idx) ? 'translateY(-4px) scale(1.03)' : 'translateY(0) scale(1)',
+			transition: 'transform .35s cubic-bezier(.22,.9,.34,1), box-shadow .3s, outline-color .2s',
+			display:'flex',
+			alignItems:'center',
+			justifyContent:'center',
+				// If a real logo is present, prefer a neutral/dark background so the
+				// logo stands out and doesn't clash with the random gradient colors.
+				background: p.logo
+					? 'linear-gradient(135deg, rgba(10,10,10,0.92), rgba(0,0,0,0.98))'
+					: `linear-gradient(135deg, ${p.gradient?.[0] || '#222'}, ${p.gradient?.[1] || '#000'})`
+		}}
+		tabIndex={0}
+		onMouseEnter={()=>setHovered(idx)}
+		onMouseLeave={()=>setHovered(null)}
+		onClick={()=>handlePlatformClick(p)}
+	>
+		{(hovered === idx || focusedIdx === idx) && p.video && (
+			<video
+				src={p.video}
+				autoPlay
+				loop
+				muted
+				style={{
+					position:'absolute',
+					inset:0,
+					width:'100%',
+					height:'100%',
+					objectFit:'cover',
+					filter:'brightness(.9) saturate(1.1)',
+					zIndex:1,
+					pointerEvents:'none'
+				}}
+			/>
+		)}
+
+		{/* koyu/yarı saydam overlay */}
+		<div style={{ position:'absolute', inset:0, background:(hovered===idx||focusedIdx===idx) ? 'linear-gradient(160deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))' : 'linear-gradient(160deg, rgba(0,0,0,0.5), rgba(0,0,0,0.78))', zIndex:2 }} />
+
+			{/* Logo varsa göster, yoksa başlığı göster */}
+			<div style={{position:'relative',zIndex:3,display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',padding:'6px 10px'}}>
+				{p.logo ? (
+					<img
+						src={p.logo}
+						alt={p.name}
+						style={{
+							maxWidth: '70%',
+							maxHeight: '70%',
+							objectFit: 'contain',
+							filter: 'drop-shadow(0 6px 18px rgba(0,0,0,0.6))',
+							pointerEvents: 'none'
+						}}
+						onError={(e)=>{ e.currentTarget.style.display = 'none'; }}
+					/>
+				) : (
+					<div
+						style={{
+							color:'#fff',
+							fontWeight:700,
+							fontSize: window.innerWidth < 600 ? '0.9rem' : '1rem',
+							letterSpacing:0.4,
+							textAlign:'center',
+							textShadow:'0 3px 10px rgba(0,0,0,0.6)',
+							whiteSpace:'nowrap',
+							overflow:'hidden',
+							textOverflow:'ellipsis'
+						}}
+						title={p.name}
+					>
+						{p.name}
+					</div>
+				)}
+			</div>
+	</div>
+))}
 				</div>
 			</div>
 		</div>
